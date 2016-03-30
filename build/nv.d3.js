@@ -1,4 +1,4 @@
-/* nvd3 version 1.8.2-dev (https://github.com/novus/nvd3) 2016-02-05 */
+/* nvd3 version 1.8.2-dev (https://github.com/novus/nvd3) 2016-03-30 */
 (function(){
 
 // set up main nv object
@@ -1499,17 +1499,28 @@ nv.utils.noData = function(chart, container) {
     //Remove any previously created chart components
     container.selectAll('g').remove();
 
-    var noDataText = container.selectAll('.nv-noData').data(data);
+    data = noData.split(/<br.*?>/g);
+    var noDataText = container
+      .append('text')
+      .attr('class', 'nvd3 nv-noData')
+      .attr('x', x)
+      .attr('y', y)
+      .style('text-anchor', 'middle');
 
-    noDataText.enter().append('text')
-        .attr('class', 'nvd3 nv-noData')
-        .attr('dy', '-.7em')
-        .style('text-anchor', 'middle');
-
-    noDataText
-        .attr('x', x)
-        .attr('y', y)
-        .text(function(t){ return t; });
+    noDataText.selectAll('tspan')
+      .data(data)
+      .enter()
+      .append('tspan')
+      .attr("x", noDataText.attr("x"))
+      .attr("dy", function(text, index) {
+        if (index > 0) {
+          return '1.2em'
+        }
+        return '';
+      })
+      .text(function(d){
+        return d;
+      });
 };
 
 /*
@@ -1549,7 +1560,7 @@ nv.utils.arrayEquals = function (array1, array2) {
     if (!array1 || !array2)
         return false;
 
-    // compare lengths - can save a lot of time 
+    // compare lengths - can save a lot of time
     if (array1.length != array2.length)
         return false;
 
@@ -1566,7 +1577,8 @@ nv.utils.arrayEquals = function (array1, array2) {
         }
     }
     return true;
-};nv.models.axis = function() {
+};
+nv.models.axis = function() {
     "use strict";
 
     //============================================================
@@ -4731,13 +4743,13 @@ nv.models.furiousLegend = function() {
                 var seriesWidths = [];
                 series.each(function(d,i) {
                     var legendText;
-                    if (getKey(d).length > maxKeyLength) { 
+                    if (getKey(d) && (getKey(d).length > maxKeyLength)) {
                         var trimmedKey = getKey(d).substring(0, maxKeyLength);
                         legendText = d3.select(this).select('text').text(trimmedKey + "...");
                         d3.select(this).append("svg:title").text(getKey(d));
                     } else {
                         legendText = d3.select(this).select('text');
-                    } 
+                    }
                     var nodeTextLength;
                     try {
                         nodeTextLength = legendText.node().getComputedTextLength();
@@ -5643,11 +5655,12 @@ nv.models.legend = function() {
                             }
                             else {
                                 d.disabled = !d.disabled;
-                                if (data.every(function(series) { return series.disabled})) {
-                                    //the default behavior of NVD3 legends is, if every single series
-                                    // is disabled, turn all series' back on.
-                                    data.forEach(function(series) { series.disabled = false});
-                                }
+                                // 允许全部隐藏
+                                // if (data.every(function(series) { return series.disabled})) {
+                                //     //the default behavior of NVD3 legends is, if every single series
+                                //     // is disabled, turn all series' back on.
+                                //     data.forEach(function(series) { series.disabled = false});
+                                // }
                             }
                         } else if(vers == 'furious') {
                             if(expanded) {
@@ -5709,13 +5722,13 @@ nv.models.legend = function() {
                 var seriesWidths = [];
                 series.each(function(d,i) {
                     var legendText;
-                    if (getKey(d).length > maxKeyLength) { 
+                    if (getKey(d) && (getKey(d).length > maxKeyLength)) {
                         var trimmedKey = getKey(d).substring(0, maxKeyLength);
                         legendText = d3.select(this).select('text').text(trimmedKey + "...");
                         d3.select(this).append("svg:title").text(getKey(d));
                     } else {
                         legendText = d3.select(this).select('text');
-                    } 
+                    }
                     var nodeTextLength;
                     try {
                         nodeTextLength = legendText.node().getComputedTextLength();
@@ -5799,8 +5812,9 @@ nv.models.legend = function() {
                         return 'translate(' + xpos + ',' + ypos + ')';
                     });
 
-                //position legend as far right as possible within the total width
-                g.attr('transform', 'translate(' + (width - margin.right - maxwidth) + ',' + margin.top + ')');
+                //REMOVE: position legend as far right as possible within the total width
+                //set it at the center point
+                g.attr('transform', 'translate(' + (width - margin.right - maxwidth) / 2 + ',' + margin.top + ')');
 
                 height = margin.top + margin.bottom + ypos + 15;
             }
@@ -6323,8 +6337,10 @@ nv.models.lineChart = function() {
                     .call(legend);
 
                 if (legendPosition === 'bottom') {
-                    wrap.select('.nv-legendWrap')
-                        .attr('transform', 'translate(0,' + (availableHeight1 + legend.height()) +')');
+                  availableHeight1 = nv.utils.availableHeight(height, container, margin) - (focusEnable ? focusHeight : 0);
+                  availableHeight1 = availableHeight1 - legend.height();
+                  wrap.select('.nv-legendWrap')
+                      .attr('transform', 'translate(0,' + (availableHeight1 + xAxis.orient('bottom').tickPadding() + 20) + ')');
                 } else if (legendPosition === 'top') {
                     if ( margin.top != legend.height()) {
                         margin.top = legend.height();
@@ -8660,33 +8676,41 @@ nv.models.multiBarHorizontal = function() {
                     .style('stroke', function(d,i,j) { return d3.rgb(barColor(d,i)).darker(  disabled.map(function(d,i) { return i }).filter(function(d,i){ return !disabled[i]  })[j]   ).toString(); });
             }
 
-            if (stacked)
-                bars.watchTransition(renderWatch, 'multibarhorizontal: bars')
-                    .attr('transform', function(d,i) {
-                        return 'translate(' + y(d.y1) + ',' + x(getX(d,i)) + ')'
-                    })
-                    .select('rect')
-                    .attr('width', function(d,i) {
-                        return Math.abs(y(getY(d,i) + d.y0) - y(d.y0)) || 0
-                    })
-                    .attr('height', x.rangeBand() );
-            else
-                bars.watchTransition(renderWatch, 'multibarhorizontal: bars')
-                    .attr('transform', function(d,i) {
-                        //TODO: stacked must be all positive or all negative, not both?
-                        return 'translate(' +
-                            (getY(d,i) < 0 ? y(getY(d,i)) : y(0))
-                            + ',' +
-                            (d.series * x.rangeBand() / data.length
-                                +
-                                x(getX(d,i)) )
-                            + ')'
-                    })
-                    .select('rect')
-                    .attr('height', x.rangeBand() / data.length )
-                    .attr('width', function(d,i) {
-                        return Math.max(Math.abs(y(getY(d,i)) - y(0)),1) || 0
-                    });
+            if (stacked) {
+              bars.watchTransition(renderWatch, 'multibarhorizontal: bars')
+                  .attr('transform', function(d,i) {
+                      return 'translate(' + y(d.y1) + ',' + x(getX(d,i)) + ')'
+                  })
+                  .select('rect')
+                  .attr('width', function(d,i) {
+                      return Math.abs(y(getY(d,i) + d.y0) - y(d.y0)) || 0
+                  })
+                  .attr('height', x.rangeBand() );
+            }
+            else {
+              var barsHeight;
+              if (data.length == 1) {
+                barsHeight = x.rangeBand() / 2;
+              } else {
+                barsHeight = x.rangeBand() / data.length;
+              }
+              bars.watchTransition(renderWatch, 'multibarhorizontal: bars')
+                  .attr('transform', function(d,i) {
+                      //TODO: stacked must be all positive or all negative, not both?
+                      return 'translate(' +
+                          (getY(d,i) < 0 ? y(getY(d,i)) : y(0))
+                          + ',' +
+                          (d.series * x.rangeBand() / data.length
+                              + (data.length == 1 ? (x.rangeBand() / 4) : 0)  +
+                              x(getX(d,i)) )
+                          + ')'
+                  })
+                  .select('rect')
+                  .attr('height', barsHeight )
+                  .attr('width', function(d,i) {
+                      return Math.max(Math.abs(y(getY(d,i)) - y(0)),1) || 0
+                  });
+            }
 
             //store old scales for use in transitions on update
             x0 = x.copy();
@@ -9307,10 +9331,12 @@ nv.models.multiChart = function() {
             stack1
                 .width(availableWidth)
                 .height(availableHeight)
+                .interpolate(interpolate)
                 .color(color_array.filter(function(d,i) { return !data[i].disabled && data[i].yAxis == 1 && data[i].type == 'area'}));
             stack2
                 .width(availableWidth)
                 .height(availableHeight)
+                .interpolate(interpolate)
                 .color(color_array.filter(function(d,i) { return !data[i].disabled && data[i].yAxis == 2 && data[i].type == 'area'}));
 
             g.attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
