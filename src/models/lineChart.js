@@ -184,8 +184,10 @@ nv.models.lineChart = function() {
                     .call(legend);
 
                 if (legendPosition === 'bottom') {
-                    wrap.select('.nv-legendWrap')
-                        .attr('transform', 'translate(0,' + (availableHeight1 + legend.height()) +')');
+                  availableHeight1 = nv.utils.availableHeight(height, container, margin) - (focusEnable ? focusHeight : 0);
+                  availableHeight1 = availableHeight1 - legend.height();
+                  wrap.select('.nv-legendWrap')
+                      .attr('transform', 'translate(0,' + (availableHeight1 + xAxis.orient('bottom').tickPadding() + 20) + ')');
                 } else if (legendPosition === 'top') {
                     if ( margin.top != legend.height()) {
                         margin.top = legend.height();
