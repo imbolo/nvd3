@@ -265,33 +265,41 @@ nv.models.multiBarHorizontal = function() {
                     .style('stroke', function(d,i,j) { return d3.rgb(barColor(d,i)).darker(  disabled.map(function(d,i) { return i }).filter(function(d,i){ return !disabled[i]  })[j]   ).toString(); });
             }
 
-            if (stacked)
-                bars.watchTransition(renderWatch, 'multibarhorizontal: bars')
-                    .attr('transform', function(d,i) {
-                        return 'translate(' + y(d.y1) + ',' + x(getX(d,i)) + ')'
-                    })
-                    .select('rect')
-                    .attr('width', function(d,i) {
-                        return Math.abs(y(getY(d,i) + d.y0) - y(d.y0)) || 0
-                    })
-                    .attr('height', x.rangeBand() );
-            else
-                bars.watchTransition(renderWatch, 'multibarhorizontal: bars')
-                    .attr('transform', function(d,i) {
-                        //TODO: stacked must be all positive or all negative, not both?
-                        return 'translate(' +
-                            (getY(d,i) < 0 ? y(getY(d,i)) : y(0))
-                            + ',' +
-                            (d.series * x.rangeBand() / data.length
-                                +
-                                x(getX(d,i)) )
-                            + ')'
-                    })
-                    .select('rect')
-                    .attr('height', x.rangeBand() / data.length )
-                    .attr('width', function(d,i) {
-                        return Math.max(Math.abs(y(getY(d,i)) - y(0)),1) || 0
-                    });
+            if (stacked) {
+              bars.watchTransition(renderWatch, 'multibarhorizontal: bars')
+                  .attr('transform', function(d,i) {
+                      return 'translate(' + y(d.y1) + ',' + x(getX(d,i)) + ')'
+                  })
+                  .select('rect')
+                  .attr('width', function(d,i) {
+                      return Math.abs(y(getY(d,i) + d.y0) - y(d.y0)) || 0
+                  })
+                  .attr('height', x.rangeBand() );
+            }
+            else {
+              var barsHeight;
+              if (data.length == 1) {
+                barsHeight = x.rangeBand() / 2;
+              } else {
+                barsHeight = x.rangeBand() / data.length;
+              }
+              bars.watchTransition(renderWatch, 'multibarhorizontal: bars')
+                  .attr('transform', function(d,i) {
+                      //TODO: stacked must be all positive or all negative, not both?
+                      return 'translate(' +
+                          (getY(d,i) < 0 ? y(getY(d,i)) : y(0))
+                          + ',' +
+                          (d.series * x.rangeBand() / data.length
+                              + (data.length == 1 ? (x.rangeBand() / 4) : 0)  +
+                              x(getX(d,i)) )
+                          + ')'
+                  })
+                  .select('rect')
+                  .attr('height', barsHeight )
+                  .attr('width', function(d,i) {
+                      return Math.max(Math.abs(y(getY(d,i)) - y(0)),1) || 0
+                  });
+            }
 
             //store old scales for use in transitions on update
             x0 = x.copy();
