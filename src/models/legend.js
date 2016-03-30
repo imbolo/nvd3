@@ -112,11 +112,12 @@ nv.models.legend = function() {
                             }
                             else {
                                 d.disabled = !d.disabled;
-                                if (data.every(function(series) { return series.disabled})) {
-                                    //the default behavior of NVD3 legends is, if every single series
-                                    // is disabled, turn all series' back on.
-                                    data.forEach(function(series) { series.disabled = false});
-                                }
+                                // 允许全部隐藏
+                                // if (data.every(function(series) { return series.disabled})) {
+                                //     //the default behavior of NVD3 legends is, if every single series
+                                //     // is disabled, turn all series' back on.
+                                //     data.forEach(function(series) { series.disabled = false});
+                                // }
                             }
                         } else if(vers == 'furious') {
                             if(expanded) {
@@ -268,8 +269,9 @@ nv.models.legend = function() {
                         return 'translate(' + xpos + ',' + ypos + ')';
                     });
 
-                //position legend as far right as possible within the total width
-                g.attr('transform', 'translate(' + (width - margin.right - maxwidth) + ',' + margin.top + ')');
+                //REMOVE: position legend as far right as possible within the total width
+                //set it at the center point
+                g.attr('transform', 'translate(' + (width - margin.right - maxwidth) / 2 + ',' + margin.top + ')');
 
                 height = margin.top + margin.bottom + ypos + 15;
             }
