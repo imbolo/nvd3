@@ -112,12 +112,11 @@ nv.models.legend = function() {
                             }
                             else {
                                 d.disabled = !d.disabled;
-                                // 允许全部隐藏
-                                // if (data.every(function(series) { return series.disabled})) {
-                                //     //the default behavior of NVD3 legends is, if every single series
-                                //     // is disabled, turn all series' back on.
-                                //     data.forEach(function(series) { series.disabled = false});
-                                // }
+                                if (data.every(function(series) { return series.disabled})) {
+                                    //the default behavior of NVD3 legends is, if every single series
+                                    // is disabled, turn all series' back on.
+                                    data.forEach(function(series) { series.disabled = false});
+                                }
                             }
                         } else if(vers == 'furious') {
                             if(expanded) {
