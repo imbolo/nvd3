@@ -167,21 +167,6 @@ nv.models.line = function() {
             x0 = x.copy();
             y0 = y.copy();
         });
-
-        //animate the lines
-        var pathNvlines = d3.selectAll('path.nv-line');
-        var totalLength = pathNvlines.node().getTotalLength();
-        if (!pathNvlines.attr('stroke-dashoffset')) {
-          pathNvlines.attr("stroke-dasharray", totalLength + " " + totalLength)
-          pathNvlines.attr("stroke-dashoffset", totalLength)
-              .transition()
-              .duration(1000)
-              .ease("linear")
-              .attr("stroke-dashoffset", 0);
-        } else {
-          pathNvlines.attr("stroke-dasharray", " ")
-        }
-
         renderWatch.renderEnd('line immediate');
         return chart;
     }
