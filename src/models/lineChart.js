@@ -367,6 +367,28 @@ nv.models.lineChart = function() {
                     .attr('transform', 'translate(0,' + y2.range()[0] + ')');
             }
 
+            //animate the lines
+            var linePaths = container.selectAll('.nv-groups .nv-group path.nv-line');            
+            if (!linePaths.attr('stroke-dashoffset')) {
+                linePaths.each(function() {
+                    var currentLine = d3.select(this);
+                    if (!currentLine.node() || !currentLine.node().getTotalLength) {
+                      return;
+                    }
+                    var totalLength = currentLine.node().getTotalLength();
+                    currentLine
+                      .attr("stroke-dasharray", totalLength + " " + totalLength)
+                      .attr("stroke-dashoffset", totalLength)
+                      .transition()
+                      .duration(1000)
+                      .ease("linear")
+                      .attr("stroke-dashoffset", 0);
+                });
+            } else {
+                //clear the stroke-dasharray, make sure the line is complete
+                linePaths.attr("stroke-dasharray", " ")
+            }
+
             //============================================================
             // Event Handling/Dispatching (in chart's scope)
             //------------------------------------------------------------
