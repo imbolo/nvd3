@@ -177,7 +177,7 @@ nv.models.lineChart = function() {
             if (!showLegend) {
                 g.select('.nv-legendWrap').selectAll('*').remove();
             } else {
-                legend.width(availableWidth);
+                legend.width(availableWidth + margin.left / 2);
 
                 g.select('.nv-legendWrap')
                     .datum(data)
@@ -195,7 +195,7 @@ nv.models.lineChart = function() {
                     }
 
                     wrap.select('.nv-legendWrap')
-                        .attr('transform', 'translate(0,' + (-margin.top) +')');
+                        .attr('transform', 'translate(' + (- margin.left / 2) + ',' + (-margin.top) +')');
                 }
             }
 
