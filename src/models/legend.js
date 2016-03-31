@@ -52,14 +52,14 @@ nv.models.legend = function() {
                     versPadding = 23;
                     break;
                 case 'classic' :
-                    versPadding = 20;
+                    versPadding = 16;
             }
 
             if(vers == 'classic') {
                 seriesEnter.append('circle')
                     .style('stroke-width', 2)
                     .attr('class','nv-legend-symbol')
-                    .attr('r', 5);
+                    .attr('r', 4);
 
                 seriesShape = series.select('circle');
             } else if (vers == 'furious') {
