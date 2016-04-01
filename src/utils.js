@@ -640,6 +640,11 @@ nv.utils.noData = function(chart, container) {
     //Remove any previously created chart components
     container.selectAll('g').remove();
 
+    // prevent from duplicate no data info
+    if(container.select('text.nv-noData').node() != null) {
+      return;
+    }
+
     data = data[0].split(/<br.*?>/g);
     var noDataText = container
       .append('text')
