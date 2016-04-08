@@ -44,3 +44,13 @@
 .nvd3 .nv-indexLine {
     cursor: ew-resize;
 }
+
+.nvd3 .nv-zoomLayer g.button rect {
+    fill: #fff;
+    stroke: #CCCCCC;
+    strokeWidth: 1;
+}
+
+.nvd3 .nv-zoomLayer g.button:hover {
+    opacity: 0.7;
+}

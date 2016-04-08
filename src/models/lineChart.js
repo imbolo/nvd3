@@ -10,6 +10,7 @@ nv.models.lineChart = function() {
         , yAxis = nv.models.axis()
         , legend = nv.models.legend()
         , interactiveLayer = nv.interactiveGuideline()
+        , zoomLayer = nv.zoomLayer()
         , tooltip = nv.models.tooltip()
         , lines2 = nv.models.line()
         , x2Axis = nv.models.axis()
@@ -32,6 +33,7 @@ nv.models.lineChart = function() {
         , y
         , x2
         , y2
+        , zoomType = null
         , focusEnable = false
         , focusShowAxisY = false
         , focusShowAxisX = true
@@ -164,6 +166,7 @@ nv.models.lineChart = function() {
             focusEnter.append('g').attr('class', 'nv-y nv-axis');
             focusEnter.append('g').attr('class', 'nv-linesWrap');
             focusEnter.append('g').attr('class', 'nv-interactive');
+            focusEnter.append('g').attr('class', 'nv-zoomLayer');
 
             var contextEnter = gEnter.append('g').attr('class', 'nv-context');
             contextEnter.append('g').attr('class', 'nv-background').append('rect');
@@ -215,6 +218,51 @@ nv.models.lineChart = function() {
                     .svgContainer(container)
                     .xScale(x);
                 wrap.select(".nv-interactive").call(interactiveLayer);
+
+                zoomLayer
+                    .width(availableWidth)
+                    .height(availableHeight1)
+                    .margin({left:margin.left, top:margin.top})
+                    .svgContainer(container)
+                    .xScale(x);
+                wrap.select(".nv-zoomLayer").call(zoomLayer);                
+            }
+
+            if (zoomType && zoomType == 'x') {                
+                var resetZoomButton = wrap.select(".nv-zoomLayer")
+                    .append('g')
+                    .attr('class', 'button')
+                    .attr('cursor', 'pointer')
+                resetZoomButton.append('rect')
+                    .attr('x', availableWidth - 72 - 20)
+                    .attr('y', 4)
+                    .attr('rx', 2)
+                    .attr('ry', 2)
+                    .attr('width', 78)
+                    .attr('height', 25);
+
+                resetZoomButton
+                    .append('text')
+                    .attr('x', availableWidth - 72 - 10)
+                    .attr('y', 22)
+                    .text('Rest Zoom');
+
+                resetZoomButton.on('click', function() {
+                    var min = d3.min(container.data()[0], function(d) {
+                        return d3.min(d.values, function(d) {
+                            return chart.x()(d);
+                        })
+                    });
+                    var max = d3.max(container.data()[0], function(d) {
+                        return d3.max(d.values, function(d) {
+                            return chart.x()(d);
+                        })
+                    });
+                    chart.options({
+                        xDomain: [min, max]
+                    });
+                    chart.update();
+                });
             }
 
             g.select('.nv-focus .nv-background rect')
@@ -487,6 +535,71 @@ nv.models.lineChart = function() {
                 lines.clearHighlights();
             });
 
+            if (zoomType == 'x') {
+                //---drag---
+                var currentXValue = null;
+                //the svg position x of drag point
+                var dragStartX = null;
+                // the point.x value of drag point
+                var dragStartXValue = null;
+                var dragStartYValue = null;
+                zoomLayer.dispatch.on('elementMousemove', function(e) {                
+                    if (dragStartXValue === null) {
+                        return;
+                    }
+                    var pointXLocation;
+                    data.filter(function(series, i) {
+                        series.seriesIndex = i;
+                        return !series.disabled;
+                    }).forEach(function(series) {
+                        var pointIndex = nv.interactiveBisect(series.values, e.pointXValue, chart.x());
+                        var point = series.values[pointIndex];
+                        currentXValue = chart.x()(point,pointIndex);
+                        if (typeof point === 'undefined') return;
+                        if (typeof pointXLocation === 'undefined') pointXLocation = chart.xScale()(currentXValue);
+                        var yPos = chart.yScale()(chart.y()(point,pointIndex));                    
+                    });
+
+                    zoomLayer.updateSelectArea(dragStartX, pointXLocation)
+                });
+
+                zoomLayer.dispatch.on("elementDragStart", function(e) {    
+                    var pointXLocation;
+                    data.filter(function(series, i) {
+                        series.seriesIndex = i;
+                        return !series.disabled;
+                    }).forEach(function(series) {
+                        var pointIndex = nv.interactiveBisect(series.values, e.pointXValue, chart.x());
+                        var point = series.values[pointIndex];
+                        dragStartXValue = chart.x()(point,pointIndex);
+                        if (typeof point === 'undefined') return;
+                        if (typeof pointXLocation === 'undefined') pointXLocation = chart.xScale()(dragStartXValue);
+                        var yPos = chart.yScale()(chart.y()(point,pointIndex));                    
+                    });
+                    
+                    dragStartX = pointXLocation;
+                                    
+                    zoomLayer.renderSelectArea(pointXLocation)
+                });
+
+                zoomLayer.dispatch.on("elementDragEnd", function(e) {                                
+                    if (dragStartXValue != currentXValue) {
+                        chart.options({
+                            xDomain: [
+                                d3.min([dragStartXValue, currentXValue]),
+                                d3.max([dragStartXValue, currentXValue])
+                            ]
+                        });     
+                        
+                        chart.update();       
+                    }                              
+
+                    dragStartXValue = null;
+                    dragStartX = null;
+                    zoomLayer.removeSelectArea();
+                });
+            }            
+
             dispatch.on('changeState', function(e) {
                 if (typeof e.disabled !== 'undefined' && data.length === e.disabled.length) {
                     data.forEach(function(series,i) {
@@ -625,6 +738,7 @@ nv.models.lineChart = function() {
         legendPosition: {get: function(){return legendPosition;}, set: function(_){legendPosition=_;}},
         showXAxis:      {get: function(){return showXAxis;}, set: function(_){showXAxis=_;}},
         showYAxis:    {get: function(){return showYAxis;}, set: function(_){showYAxis=_;}},
+        zoomType:    {get: function(){return zoomType;}, set: function(_){zoomType=_;}},
         focusEnable:    {get: function(){return focusEnable;}, set: function(_){focusEnable=_;}},
         focusHeight:     {get: function(){return height2;}, set: function(_){focusHeight=_;}},
         focusShowAxisX:    {get: function(){return focusShowAxisX;}, set: function(_){focusShowAxisX=_;}},
