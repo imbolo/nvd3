@@ -42,7 +42,7 @@ nv.models.lineChart = function() {
         , state = nv.utils.state()
         , defaultState = null
         , noData = null
-        , dispatch = d3.dispatch('tooltipShow', 'tooltipHide', 'brush', 'stateChange', 'changeState', 'renderEnd')
+        , dispatch = d3.dispatch('tooltipShow', 'tooltipHide', 'brush', 'stateChange', 'changeState', 'renderEnd', 'zoom')
         , duration = 250
         ;
 
@@ -260,10 +260,16 @@ nv.models.lineChart = function() {
                         return d3.max(d.values, function(d) {
                             return chart.x()(d);
                         })
-                    });
+                    });                    
                     chart.options({
                         xDomain: [min, max]
                     });
+
+                    dispatch.zoom({
+                        type: 'reset',
+                        xDomain: [min, max]
+                    });            
+
                     chart.update();
                 });
             }
@@ -588,14 +594,19 @@ nv.models.lineChart = function() {
 
                 zoomLayer.dispatch.on("elementDragEnd", function(e) {                                
                     if (dragStartXValue != currentXValue) {
+                        var xDomain = [
+                            d3.min([dragStartXValue, currentXValue]),
+                            d3.max([dragStartXValue, currentXValue])
+                        ];
                         chart.options({
-                            xDomain: [
-                                d3.min([dragStartXValue, currentXValue]),
-                                d3.max([dragStartXValue, currentXValue])
-                            ]
+                            xDomain: xDomain
                         });     
                         
                         chart.update();       
+                        dispatch.zoom({
+                            type: 'zoom'
+                            xDomain: xDomain
+                        });
                     }                              
 
                     dragStartXValue = null;
