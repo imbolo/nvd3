@@ -548,16 +548,17 @@ nv.models.lineChart = function() {
                         return;
                     }
                     var pointXLocation;
+                    currentXValue = e.pointXValue;
                     data.filter(function(series, i) {
                         series.seriesIndex = i;
                         return !series.disabled;
                     }).forEach(function(series) {
                         var pointIndex = nv.interactiveBisect(series.values, e.pointXValue, chart.x());
                         var point = series.values[pointIndex];
-                        currentXValue = chart.x()(point,pointIndex);
+                        
                         if (typeof point === 'undefined') return;
-                        if (typeof pointXLocation === 'undefined') pointXLocation = chart.xScale()(currentXValue);
-                        var yPos = chart.yScale()(chart.y()(point,pointIndex));                    
+                        if (typeof pointXLocation === 'undefined') pointXLocation = chart.xScale()(chart.x()(point,pointIndex));
+
                     });
 
                     zoomLayer.updateSelectArea(dragStartX, pointXLocation)
@@ -565,16 +566,16 @@ nv.models.lineChart = function() {
 
                 zoomLayer.dispatch.on("elementDragStart", function(e) {    
                     var pointXLocation;
+                    dragStartXValue = e.pointXValue;
                     data.filter(function(series, i) {
                         series.seriesIndex = i;
                         return !series.disabled;
                     }).forEach(function(series) {
                         var pointIndex = nv.interactiveBisect(series.values, e.pointXValue, chart.x());
                         var point = series.values[pointIndex];
-                        dragStartXValue = chart.x()(point,pointIndex);
+                    
                         if (typeof point === 'undefined') return;
-                        if (typeof pointXLocation === 'undefined') pointXLocation = chart.xScale()(dragStartXValue);
-                        var yPos = chart.yScale()(chart.y()(point,pointIndex));                    
+                        if (typeof pointXLocation === 'undefined') pointXLocation = chart.xScale()(chart.x()(point,pointIndex));                    
                     });
                     
                     dragStartX = pointXLocation;
