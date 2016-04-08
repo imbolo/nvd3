@@ -604,7 +604,7 @@ nv.models.lineChart = function() {
                         
                         chart.update();       
                         dispatch.zoom({
-                            type: 'zoom'
+                            type: 'zoom',
                             xDomain: xDomain
                         });
                     }                              
