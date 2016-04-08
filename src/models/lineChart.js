@@ -239,7 +239,10 @@ nv.models.lineChart = function() {
                     .attr('rx', 2)
                     .attr('ry', 2)
                     .attr('width', 78)
-                    .attr('height', 25);
+                    .attr('height', 25)
+                    .attr('fill', '#fff')                    
+                    .attr('stroke', '#999')
+                    .attr('strokeWidth', 1)
 
                 resetZoomButton
                     .append('text')
