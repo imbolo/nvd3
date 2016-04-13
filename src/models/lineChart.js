@@ -93,6 +93,7 @@ nv.models.lineChart = function() {
                 });
         };
     };
+    var resetZoomButton;
 
     function chart(selection) {
         renderWatch.reset();
@@ -228,8 +229,7 @@ nv.models.lineChart = function() {
                 wrap.select(".nv-zoomLayer").call(zoomLayer);
             }
 
-            if (zoomType && zoomType == 'x') {                
-                var resetZoomButton;
+            if (zoomType && zoomType == 'x') {                                
                 if (wrap.selectAll(".nv-zoomLayer g.button").node() == null) {
                     // wrap.selectAll(".nv-zoomLayer g.button").remove();
                     resetZoomButton = wrap.select(".nv-zoomLayer")
