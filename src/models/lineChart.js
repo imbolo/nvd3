@@ -228,51 +228,59 @@ nv.models.lineChart = function() {
                 wrap.select(".nv-zoomLayer").call(zoomLayer);
             }
 
-            if (zoomType && zoomType == 'x') {
-                wrap.selectAll(".nv-zoomLayer g.button").remove();
-                var resetZoomButton = wrap.select(".nv-zoomLayer")
-                    .append('g')
-                    .attr('class', 'button')
-                    .attr('cursor', 'pointer')
-                resetZoomButton.append('rect')
-                    .attr('x', availableWidth - 72 - 20)
-                    .attr('y', 4)
-                    .attr('rx', 2)
-                    .attr('ry', 2)
-                    .attr('width', 78)
-                    .attr('height', 25)
-                    .attr('fill', '#fff')
-                    .attr('stroke', '#999')
-                    .attr('strokeWidth', 1)
+            if (zoomType && zoomType == 'x') {                
+                var resetZoomButton;
+                if (wrap.selectAll(".nv-zoomLayer g.button").node() == null) {
+                    // wrap.selectAll(".nv-zoomLayer g.button").remove();
+                    resetZoomButton = wrap.select(".nv-zoomLayer")
+                        .append('g')
+                        .attr('class', 'button')
+                        .attr('cursor', 'pointer')
+                    resetZoomButton.append('rect')
+                        .attr('x', availableWidth - 72 - 20)
+                        .attr('y', 4)
+                        .attr('rx', 2)
+                        .attr('ry', 2)
+                        .attr('width', 78)
+                        .attr('height', 25)
+                        .attr('fill', '#fff')
+                        .attr('stroke', '#999')
+                        .attr('strokeWidth', 1)
 
-                resetZoomButton
-                    .append('text')
-                    .attr('x', availableWidth - 72 - 10)
-                    .attr('y', 22)
-                    .text('Rest Zoom');
+                    resetZoomButton
+                        .append('text')
+                        .attr('x', availableWidth - 72 - 10)
+                        .attr('y', 22)
+                        .text('Rest Zoom');
 
-                resetZoomButton.on('click', function() {
-                    var min = d3.min(container.data()[0], function(d) {
-                        return d3.min(d.values, function(d) {
-                            return chart.x()(d);
-                        })
-                    });
-                    var max = d3.max(container.data()[0], function(d) {
-                        return d3.max(d.values, function(d) {
-                            return chart.x()(d);
-                        })
-                    });
-                    chart.options({
-                        xDomain: [min, max]
-                    });
+                    resetZoomButton.style('display', 'none');
+                    resetZoomButton.on('click', function() {
+                        resetZoomButton.style('display', 'none');
+                        var min = d3.min(container.data()[0], function(d) {
+                            return d3.min(d.values, function(d) {
+                                return chart.x()(d);
+                            })
+                        });
+                        var max = d3.max(container.data()[0], function(d) {
+                            return d3.max(d.values, function(d) {
+                                return chart.x()(d);
+                            })
+                        });
+                        chart.options({
+                            xDomain: [min, max]
+                        });
 
-                    dispatch.zoom({
-                        type: 'reset',
-                        xDomain: [min, max]
-                    });
+                        dispatch.zoom({
+                            type: 'reset',
+                            xDomain: [min, max]
+                        });
 
-                    chart.update();
-                });
+                        chart.update();
+                    });
+                } else {
+                    wrap.select(".nv-zoomLayer g.button rect")
+                        .attr('x', availableWidth - 72 - 20)                        
+                }              
             }
 
             g.select('.nv-focus .nv-background rect')
@@ -429,7 +437,7 @@ nv.models.lineChart = function() {
 
             //animate the lines
             var linePaths = container.selectAll('.nv-groups .nv-group path.nv-line');
-            if (!linePaths.attr('stroke-dashoffset')) {
+            if (!nv.utils.isNumber(linePaths.attr('stroke-dashoffset')) && !linePaths.attr('stroke-dashoffset') && !linePaths.style('stroke-dasharray')) {
                 linePaths.each(function() {
                     var currentLine = d3.select(this);
                     if (!currentLine.node() || !currentLine.node().getTotalLength) {
@@ -442,11 +450,13 @@ nv.models.lineChart = function() {
                       .transition()
                       .duration(1000)
                       .ease("linear")
-                      .attr("stroke-dashoffset", 0);
+                      .attr("stroke-dashoffset", 0)
+                      .transition()
+                      .attr("stroke-dasharray", "")
                 });
             } else {
                 //clear the stroke-dasharray, make sure the line is complete
-                linePaths.attr("stroke-dasharray", " ")
+                linePaths.attr("stroke-dasharray", "")
             }
 
             //============================================================
@@ -594,7 +604,8 @@ nv.models.lineChart = function() {
                 });
 
                 zoomLayer.dispatch.on("elementDragEnd", function(e) {
-                    if (dragStartXValue != currentXValue) {
+
+                    if (dragStartXValue && dragStartXValue.toString() != currentXValue.toString()) {
                         var xDomain = [
                             d3.min([dragStartXValue, currentXValue]),
                             d3.max([dragStartXValue, currentXValue])
@@ -613,6 +624,7 @@ nv.models.lineChart = function() {
                     dragStartXValue = null;
                     dragStartX = null;
                     zoomLayer.removeSelectArea();
+                    resetZoomButton && resetZoomButton.style('display', 'block');
                 });
             }
 

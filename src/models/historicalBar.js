@@ -153,7 +153,7 @@ nv.models.historicalBar = function() {
                 .watchTransition(renderWatch, 'bars')
                 .attr('transform', function(d,i) { return 'translate(' + (x(getX(d,i)) - availableWidth / data[0].values.length * .45) + ',0)'; })
                 //TODO: better width calculations that don't assume always uniform data spacing;w
-                .attr('width', (availableWidth / data[0].values.length) * .9 );
+                .attr('width', (availableWidth / data[0].values.length) * .7 );
 
             bars.watchTransition(renderWatch, 'bars')
                 .attr('y', function(d,i) {
@@ -164,7 +164,7 @@ nv.models.historicalBar = function() {
                         y(getY(d,i));
                     return nv.utils.NaNtoZero(rval);
                 })
-                .attr('height', function(d,i) { return nv.utils.NaNtoZero(Math.max(Math.abs(y(getY(d,i)) - y(0)),1)) });
+                .attr('height', function(d,i) { return nv.utils.NaNtoZero(Math.max(Math.abs(y(getY(d,i)) - y(0)),0)) });
 
         });
 

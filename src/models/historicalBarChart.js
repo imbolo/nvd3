@@ -20,6 +20,7 @@ nv.models.historicalBarChart = function(bar_model) {
         , width = null
         , height = null
         , showLegend = false
+        , legendPosition = 'bottom'
         , showXAxis = true
         , showYAxis = true
         , rightAlignYAxis = false
@@ -109,19 +110,26 @@ nv.models.historicalBarChart = function(bar_model) {
             if (!showLegend) {
                 g.select('.nv-legendWrap').selectAll('*').remove();
             } else {
-                legend.width(availableWidth);
+                legend.width(availableWidth + margin.left / 2);
 
                 g.select('.nv-legendWrap')
                     .datum(data)
                     .call(legend);
 
-                if ( margin.top != legend.height()) {
-                    margin.top = legend.height();
-                    availableHeight = nv.utils.availableHeight(height, container, margin);
-                }
+                if (legendPosition === 'bottom') {
+                  availableHeight = nv.utils.availableHeight(height, container, margin);
+                  availableHeight = availableHeight - legend.height();
+                  wrap.select('.nv-legendWrap')
+                      .attr('transform', 'translate(0,' + (availableHeight + xAxis.orient('bottom').tickPadding() + 20) + ')');
+                } else if (legendPosition === 'top') {
+                    if ( margin.top != legend.height()) {
+                        margin.top = legend.height();
+                        availableHeight = nv.utils.availableHeight(height, container, margin);
+                    }
 
-                wrap.select('.nv-legendWrap')
-                    .attr('transform', 'translate(0,' + (-margin.top) +')')
+                    wrap.select('.nv-legendWrap')
+                        .attr('transform', 'translate(' + (- margin.left / 2) + ',' + (-margin.top) +')');
+                }
             }
             wrap.attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
@@ -312,6 +320,7 @@ nv.models.historicalBarChart = function(bar_model) {
         width:      {get: function(){return width;}, set: function(_){width=_;}},
         height:     {get: function(){return height;}, set: function(_){height=_;}},
         showLegend: {get: function(){return showLegend;}, set: function(_){showLegend=_;}},
+        legendPosition: {get: function(){return legendPosition;}, set: function(_){legendPosition=_;}},
         showXAxis: {get: function(){return showXAxis;}, set: function(_){showXAxis=_;}},
         showYAxis: {get: function(){return showYAxis;}, set: function(_){showYAxis=_;}},
         defaultState:    {get: function(){return defaultState;}, set: function(_){defaultState=_;}},
