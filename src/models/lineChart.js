@@ -437,7 +437,7 @@ nv.models.lineChart = function() {
 
             //animate the lines
             var linePaths = container.selectAll('.nv-groups .nv-group path.nv-line');
-            if (!nv.utils.isNumber(linePaths.attr('stroke-dashoffset')) && !linePaths.attr('stroke-dashoffset') && !linePaths.style('stroke-dasharray')) {
+            if (!nv.utils.isNumber(linePaths.attr('stroke-dashoffset')) && !linePaths.attr('stroke-dashoffset')) {
                 linePaths.each(function() {
                     var currentLine = d3.select(this);
                     if (!currentLine.node() || !currentLine.node().getTotalLength) {
