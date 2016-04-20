@@ -484,6 +484,10 @@ nv.models.lineChart = function() {
                             return lines.x()(d,i) >= extent[0] && lines.x()(d,i) <= extent[1];
                         });
 
+                        if (e.pointXValue < currentValues[0][0] || e.pointXValue > currentValues[currentValues.length - 1][0]) {
+                            return;
+                        }
+
                         pointIndex = nv.interactiveBisect(currentValues, e.pointXValue, lines.x());
                         var point = currentValues[pointIndex];
                         var pointYValue = chart.y()(point, pointIndex);
