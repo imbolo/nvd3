@@ -1,4 +1,4 @@
-/* nvd3 version 1.8.3-dev (https://github.com/novus/nvd3) 2016-04-26 */
+/* nvd3 version 1.8.3-dev (https://github.com/novus/nvd3) 2016-04-29 */
 (function(){
 
 // set up main nv object
@@ -422,6 +422,236 @@ nv.interactiveGuideline = function() {
     layer.showGuideLine = function(_) {
         if (!arguments.length) return showGuideLine;
         showGuideLine = _;
+        return layer;
+    };
+
+    layer.svgContainer = function(_) {
+        if (!arguments.length) return svgContainer;
+        svgContainer = _;
+        return layer;
+    };
+
+    return layer;
+};
+
+/*
+ Utility class to handle creation of a zoom layer
+ */
+nv.zoomLayer = function() {
+    'use strict';
+    var margin = { left: 0, top: 0 } //Pass the chart's top and left magins. Used to calculate the mouseX/Y.
+        ,   width = null
+        ,   height = null
+        ,   xScale = d3.scale.linear()
+        ,   dispatch = d3.dispatch('elementMousemove', 'elementMouseout', 'elementClick', 'elementDblclick', 'elementMouseDown', 'elementMouseUp', 'elementDragStart', 'elementDragEnd')
+        ,   showGuideLine = true
+        ,   svgContainer = null // Must pass the chart's svg, we'll use its mousemove event.
+        ,   tooltip = nv.models.tooltip()
+        ,   isMSIE = "ActiveXObject" in window // Checkt if IE by looking for activeX.
+        ;
+
+    function layer(selection) {
+        selection.each(function(data) {
+            var container = d3.select(this);
+            var availableWidth = (width || 960), availableHeight = (height || 400);
+            var wrap = container.selectAll("g.nv-wrap.nv-zoomLayer")
+                .data([data]);
+            var wrapEnter = wrap.enter()
+                .append("g").attr("class", " nv-wrap nv-zoomLayer");
+            wrapEnter.append("g").attr("class","nv-zoomGuideArea");
+
+            if (!svgContainer) {
+                return;
+            }
+
+            function mouseHandler() {
+                var d3mouse = d3.mouse(this);
+                var mouseX = d3mouse[0];
+                var mouseY = d3mouse[1];
+                var subtractMargin = true;
+                var mouseOutAnyReason = false;
+                if (isMSIE) {
+                    /*
+                     D3.js (or maybe SVG.getScreenCTM) has a nasty bug in Internet Explorer 10.
+                     d3.mouse() returns incorrect X,Y mouse coordinates when mouse moving
+                     over a rect in IE 10.
+                     However, d3.event.offsetX/Y also returns the mouse coordinates
+                     relative to the triggering <rect>. So we use offsetX/Y on IE.
+                     */
+                    mouseX = d3.event.offsetX;
+                    mouseY = d3.event.offsetY;
+
+                    /*
+                     On IE, if you attach a mouse event listener to the <svg> container,
+                     it will actually trigger it for all the child elements (like <path>, <circle>, etc).
+                     When this happens on IE, the offsetX/Y is set to where ever the child element
+                     is located.
+                     As a result, we do NOT need to subtract margins to figure out the mouse X/Y
+                     position under this scenario. Removing the line below *will* cause
+                     the interactive layer to not work right on IE.
+                     */
+                    if(d3.event.target.tagName !== "svg") {
+                        subtractMargin = false;
+                    }
+
+                    if (d3.event.target.className.baseVal.match("nv-legend")) {
+                        mouseOutAnyReason = true;
+                    }
+
+                }
+
+                if(subtractMargin) {
+                    mouseX -= margin.left;
+                    mouseY -= margin.top;
+                }
+
+                /* If mouseX/Y is outside of the chart's bounds,
+                 trigger a mouseOut event.
+                 */
+                if (d3.event.type === 'mouseout'
+                    || mouseX < 0 || mouseY < 0
+                    || mouseX > availableWidth || mouseY > availableHeight
+                    || (d3.event.relatedTarget && d3.event.relatedTarget.ownerSVGElement === undefined)
+                    || mouseOutAnyReason
+                ) {
+
+                    if (isMSIE) {
+                        if (d3.event.relatedTarget
+                            && d3.event.relatedTarget.ownerSVGElement === undefined
+                            && (d3.event.relatedTarget.className === undefined
+                            || d3.event.relatedTarget.className.match(tooltip.nvPointerEventsClass))) {
+
+                            return;
+                        }
+                    }
+                    dispatch.elementMouseout({
+                        mouseX: mouseX,
+                        mouseY: mouseY
+                    });
+                    layer.removeSelectArea(null); //hide the guideline
+                    tooltip.hidden(true);
+                    return;
+                } else {
+                    tooltip.hidden(false);
+                }
+
+
+                var scaleIsOrdinal = typeof xScale.rangeBands === 'function';
+                var pointXValue = undefined;
+
+                // Ordinal scale has no invert method
+                if (scaleIsOrdinal) {
+                    var elementIndex = d3.bisect(xScale.range(), mouseX) - 1;
+                    // Check if mouseX is in the range band
+                    if (xScale.range()[elementIndex] + xScale.rangeBand() >= mouseX) {
+                        pointXValue = xScale.domain()[d3.bisect(xScale.range(), mouseX) - 1];
+                    }
+                    else {
+                        dispatch.elementMouseout({
+                            mouseX: mouseX,
+                            mouseY: mouseY
+                        });
+                        layer.removeSelectArea(null); //hide the guideline
+                        tooltip.hidden(true);
+                        return;
+                    }
+                }
+                else {
+                    pointXValue = xScale.invert(mouseX);
+                }
+
+                dispatch.elementMousemove({
+                    mouseX: mouseX,
+                    mouseY: mouseY,
+                    pointXValue: pointXValue
+                });
+
+                if (d3.event.type === 'mousedown') {
+                    dispatch.elementDragStart({
+                        mouseX: mouseX,
+                        mouseY: mouseY,
+                        pointXValue: pointXValue
+                    });
+                }
+
+                if (d3.event.type === 'mousemove') {
+                    dispatch.elementMousemove({
+                        mouseX: mouseX,
+                        mouseY: mouseY,
+                        pointXValue: pointXValue
+                    });
+                }
+
+                if (d3.event.type === 'mouseup') {
+                    dispatch.elementDragEnd({
+                        mouseX: mouseX,
+                        mouseY: mouseY,
+                        pointXValue: pointXValue
+                    });
+                }
+            }
+
+            svgContainer
+                .on('mousedown.drag', mouseHandler)
+                .on('mousemove.drag', mouseHandler)
+                .on('mouseup.drag', mouseHandler)
+            ;
+
+            layer.guideLine = null;
+
+
+            layer.renderSelectArea = function(x) {
+                if (!showGuideLine) return;
+                if (layer.guideLine && layer.guideLine.attr("x1") === x) return;
+                nv.dom.write(function() {
+                    var selectArea = wrap.select(".nv-zoomGuideArea");
+                    selectArea.append('rect')
+                        .attr('fill-opacity', 0.4)
+                        .attr('fill', '#C8D3E2')
+                        .attr('x', x)
+                        .attr('y', 0)
+                        .attr('width', 1)
+                        .attr('height', availableHeight)
+                });
+            };
+
+            layer.updateSelectArea = function(startX, currentX) {
+                wrap.select(".nv-zoomGuideArea")
+                    .selectAll('rect')
+                    .attr('x', d3.min([startX, currentX]))
+                    .attr('width', Math.abs(currentX - startX))
+            };
+
+            layer.removeSelectArea = function() {
+                wrap.select(".nv-zoomGuideArea").selectAll('rect').remove();
+            }
+        });
+    }
+
+    layer.dispatch = dispatch;
+
+    layer.margin = function(_) {
+        if (!arguments.length) return margin;
+        margin.top    = typeof _.top    != 'undefined' ? _.top    : margin.top;
+        margin.left   = typeof _.left   != 'undefined' ? _.left   : margin.left;
+        return layer;
+    };
+
+    layer.width = function(_) {
+        if (!arguments.length) return width;
+        width = _;
+        return layer;
+    };
+
+    layer.height = function(_) {
+        if (!arguments.length) return height;
+        height = _;
+        return layer;
+    };
+
+    layer.xScale = function(_) {
+        if (!arguments.length) return xScale;
+        xScale = _;
         return layer;
     };
 
@@ -6636,6 +6866,7 @@ nv.models.lineChart = function() {
         , yAxis = nv.models.axis()
         , legend = nv.models.legend()
         , interactiveLayer = nv.interactiveGuideline()
+        , zoomLayer = nv.zoomLayer()
         , tooltip = nv.models.tooltip()
         , focus = nv.models.focus(nv.models.line())
         ;
@@ -6652,11 +6883,12 @@ nv.models.lineChart = function() {
         , useInteractiveGuideline = false
         , x
         , y
+        , zoomType = null
         , focusEnable = false
         , state = nv.utils.state()
         , defaultState = null
         , noData = null
-        , dispatch = d3.dispatch('tooltipShow', 'tooltipHide', 'stateChange', 'changeState', 'renderEnd')
+        , dispatch = d3.dispatch('tooltipShow', 'tooltipHide', 'stateChange', 'changeState', 'renderEnd', 'zoom')
         , duration = 250
         ;
 
@@ -6671,7 +6903,7 @@ nv.models.lineChart = function() {
     }).headerFormatter(function(d, i) {
         return xAxis.tickFormat()(d, i);
     });
-    
+
     interactiveLayer.tooltip.valueFormatter(function(d, i) {
         return yAxis.tickFormat()(d, i);
     }).headerFormatter(function(d, i) {
@@ -6713,7 +6945,7 @@ nv.models.lineChart = function() {
             nv.utils.initSVG(container);
             var availableWidth = nv.utils.availableWidth(width, container, margin),
                 availableHeight = nv.utils.availableHeight(height, container, margin) - (focusEnable ? focus.height() : 0);
-            chart.update = function() { 
+            chart.update = function() {
                 if( duration === 0 ) {
                     container.call( chart );
                 } else {
@@ -6766,6 +6998,7 @@ nv.models.lineChart = function() {
             focusEnter.append('g').attr('class', 'nv-y nv-axis');
             focusEnter.append('g').attr('class', 'nv-linesWrap');
             focusEnter.append('g').attr('class', 'nv-interactive');
+            focusEnter.append('g').attr('class', 'nv-zoomLayer');
 
             var contextEnter = gEnter.append('g').attr('class', 'nv-focusWrap');
 
@@ -6809,12 +7042,73 @@ nv.models.lineChart = function() {
                     .svgContainer(container)
                     .xScale(x);
                 wrap.select(".nv-interactive").call(interactiveLayer);
+
+                zoomLayer
+                    .width(availableWidth)
+                    .height(availableHeight)
+                    .margin({left:margin.left, top:margin.top})
+                    .svgContainer(container)
+                    .xScale(x);
+                wrap.select(".nv-zoomLayer").call(zoomLayer);
+            }
+
+            if (zoomType && zoomType == 'x') {
+                if (wrap.selectAll(".nv-zoomLayer g.button").node() == null) {
+                    var resetZoomButton = wrap.select(".nv-zoomLayer")
+                        .append('g')
+                        .attr('class', 'button')
+                        .attr('cursor', 'pointer')
+                    resetZoomButton.append('rect')
+                        .attr('x', availableWidth - 72 - 20)
+                        .attr('y', 4)
+                        .attr('rx', 2)
+                        .attr('ry', 2)
+                        .attr('width', 78)
+                        .attr('height', 25)
+                        .attr('fill', '#fff')
+                        .attr('stroke', '#999')
+                        .attr('strokeWidth', 1)
+
+                    resetZoomButton
+                        .append('text')
+                        .attr('x', availableWidth - 72 - 10)
+                        .attr('y', 22)
+                        .text('Rest Zoom');
+
+                    resetZoomButton.on('click', function() {
+                        var min = d3.min(container.data()[0], function(d) {
+                            return d3.min(d.values, function(d) {
+                                return chart.x()(d);
+                            })
+                        });
+                        var max = d3.max(container.data()[0], function(d) {
+                            return d3.max(d.values, function(d) {
+                                return chart.x()(d);
+                            })
+                        });
+                        chart.options({
+                            xDomain: [min, max]
+                        });
+
+                        dispatch.zoom({
+                            type: 'reset',
+                            xDomain: [min, max]
+                        });
+
+                        chart.update();
+                    });
+                } else {
+                    wrap.select(".nv-zoomLayer g.button rect")
+                        .attr('x', availableWidth - 72 - 20)
+                    wrap.select(".nv-zoomLayer g.button text")
+                        .attr('x', availableWidth - 72 - 10)
+                }
             }
 
             g.select('.nv-focus .nv-background rect')
                 .attr('width', availableWidth)
                 .attr('height', availableHeight);
-                
+
             lines
                 .width(availableWidth)
                 .height(availableHeight)
@@ -6863,7 +7157,7 @@ nv.models.lineChart = function() {
                 ;
               }
             }
-            
+
             g.select('.nv-focus .nv-x.nv-axis')
                 .attr('transform', 'translate(0,' + availableHeight + ')');
 
@@ -6981,6 +7275,76 @@ nv.models.lineChart = function() {
                 lines.clearHighlights();
             });
 
+            if (zoomType == 'x') {
+                //---drag---
+                var currentXValue = null;
+                //the svg position x of drag point
+                var dragStartX = null;
+                // the point.x value of drag point
+                var dragStartXValue = null;
+                var dragStartYValue = null;
+                zoomLayer.dispatch.on('elementMousemove', function(e) {
+                    if (dragStartXValue === null) {
+                        return;
+                    }
+                    var pointXLocation;
+                    currentXValue = e.pointXValue;
+                    data.filter(function(series, i) {
+                        series.seriesIndex = i;
+                        return !series.disabled;
+                    }).forEach(function(series) {
+                        var pointIndex = nv.interactiveBisect(series.values, e.pointXValue, chart.x());
+                        var point = series.values[pointIndex];
+
+                        if (typeof point === 'undefined') return;
+                        if (typeof pointXLocation === 'undefined') pointXLocation = chart.xScale()(chart.x()(point,pointIndex));
+
+                    });
+
+                    zoomLayer.updateSelectArea(dragStartX, pointXLocation)
+                });
+
+                zoomLayer.dispatch.on("elementDragStart", function(e) {
+                    var pointXLocation;
+                    dragStartXValue = e.pointXValue;
+                    data.filter(function(series, i) {
+                        series.seriesIndex = i;
+                        return !series.disabled;
+                    }).forEach(function(series) {
+                        var pointIndex = nv.interactiveBisect(series.values, e.pointXValue, chart.x());
+                        var point = series.values[pointIndex];
+
+                        if (typeof point === 'undefined') return;
+                        if (typeof pointXLocation === 'undefined') pointXLocation = chart.xScale()(chart.x()(point,pointIndex));
+                    });
+
+                    dragStartX = pointXLocation;
+
+                    zoomLayer.renderSelectArea(pointXLocation)
+                });
+
+                zoomLayer.dispatch.on("elementDragEnd", function(e) {
+                    if (dragStartXValue != currentXValue) {
+                        var xDomain = [
+                            d3.min([dragStartXValue, currentXValue]),
+                            d3.max([dragStartXValue, currentXValue])
+                        ];
+                        chart.options({
+                            xDomain: xDomain
+                        });
+
+                        chart.update();
+                        dispatch.zoom({
+                            type: 'zoom',
+                            xDomain: xDomain
+                        });
+                    }
+
+                    dragStartXValue = null;
+                    dragStartX = null;
+                    zoomLayer.removeSelectArea();
+                });
+            }
             /* Update `main' graph on brush update. */
             focus.dispatch.on("onBrush", function(extent) {
                 onBrush(extent);
@@ -7000,7 +7364,7 @@ nv.models.lineChart = function() {
             //============================================================
             // Functions
             //------------------------------------------------------------
-    
+
             // Taken from crossfilter (http://square.github.com/crossfilter/)
             function resizePath(d) {
                 var e = +(d == 'e'),
@@ -7016,7 +7380,7 @@ nv.models.lineChart = function() {
                     + 'M' + (4.5 * x) + ',' + (y + 8)
                     + 'V' + (2 * y - 8);
             }
-            
+
             function onBrush(extent) {
                 // Update Main (Focus)
                 var focusLinesWrap = g.select('.nv-focus .nv-linesWrap')
@@ -7035,7 +7399,7 @@ nv.models.lineChart = function() {
                         })
                 );
                 focusLinesWrap.transition().duration(duration).call(lines);
-    
+
                 // Update Main (Focus) Axes
                 updateXAxis();
                 updateYAxis();
@@ -7088,6 +7452,7 @@ nv.models.lineChart = function() {
         legendPosition: {get: function(){return legendPosition;}, set: function(_){legendPosition=_;}},
         showXAxis:      {get: function(){return showXAxis;}, set: function(_){showXAxis=_;}},
         showYAxis:    {get: function(){return showYAxis;}, set: function(_){showYAxis=_;}},
+        zoomType:    {get: function(){return zoomType;}, set: function(_){zoomType=_;}},
         defaultState:    {get: function(){return defaultState;}, set: function(_){defaultState=_;}},
         noData:    {get: function(){return noData;}, set: function(_){noData=_;}},
         // Focus options, mostly passed onto focus model.
@@ -7165,7 +7530,7 @@ nv.models.lineChart = function() {
 
 nv.models.lineWithFocusChart = function() {
   return nv.models.lineChart()
-    .margin({ bottom: 30 }) 
+    .margin({ bottom: 30 })
     .focusEnable( true );
 };nv.models.linePlusBarChart = function() {
     "use strict";
@@ -12097,14 +12462,16 @@ nv.models.scatter = function() {
                             if (needsUpdate || !data[d.series]) return 0; //check if this is a dummy point
                             var series = data[d.series],
                                 point  = series.values[i];
-
+                            var element = this;
                             dispatch.elementClick({
                                 point: point,
                                 series: series,
                                 pos: [x(getX(point, i)) + margin.left, y(getY(point, i)) + margin.top], //TODO: make this pos base on the page
                                 relativePos: [x(getX(point, i)) + margin.left, y(getY(point, i)) + margin.top],
                                 seriesIndex: d.series,
-                                pointIndex: i
+                                pointIndex: i,
+                                event: d3.event,
+                                element: element
                             });
                         })
                         .on('dblclick', function(d,i) {
