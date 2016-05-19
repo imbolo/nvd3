@@ -1,4 +1,4 @@
-/* nvd3 version 1.8.2-dev (https://github.com/novus/nvd3) 2016-03-30 */
+/* nvd3 version 1.8.3-dev (https://github.com/novus/nvd3) 2016-05-19 */
 .nvd3 .nv-axis {
     pointer-events:none;
     opacity: 1;
@@ -164,6 +164,18 @@
 }
 
 
+.nv-force-node {
+  stroke: #fff;
+  stroke-width: 1.5px;
+}
+.nv-force-link {
+  stroke: #999;
+  stroke-opacity: .6;
+}
+.nv-force-node text {
+  stroke-width: 0px
+}
+
 .nvd3 .nv-legend .nv-disabled rect {
     /*fill-opacity: 0;*/
 }
@@ -240,6 +252,16 @@
 
 .nvd3 .nv-indexLine {
     cursor: ew-resize;
+}
+
+.nvd3 .nv-zoomLayer g.button rect {
+    fill: #fff;
+    stroke: #CCCCCC;
+    strokeWidth: 1;
+}
+
+.nvd3 .nv-zoomLayer g.button:hover {
+    opacity: 0.7;
 }
 
 /********************
@@ -613,6 +635,10 @@ svg.nvd3-svg {
 .nvtooltip table td.value {
     text-align: right;
     font-weight: bold;
+}
+
+.nvtooltip table td.percent {
+    color: darkgray;
 }
 
 .nvtooltip table tr.highlight td {
