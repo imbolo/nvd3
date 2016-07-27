@@ -27,8 +27,6 @@ nv.models.lineChart = function() {
         , useInteractiveGuideline = false
         , x
         , y
-        , x2
-        , y2
         , zoomType = null
         , focusEnable = false
         , state = nv.utils.state()
@@ -202,9 +200,8 @@ nv.models.lineChart = function() {
                 wrap.select(".nv-zoomLayer").call(zoomLayer);
             }
 
-            if (zoomType && zoomType == 'x') {                                
+            if (zoomType && zoomType == 'x') {
                 if (wrap.selectAll(".nv-zoomLayer g.button").node() == null) {
-                    // wrap.selectAll(".nv-zoomLayer g.button").remove();
                     resetZoomButton = wrap.select(".nv-zoomLayer")
                         .append('g')
                         .attr('class', 'button')
@@ -224,11 +221,10 @@ nv.models.lineChart = function() {
                         .append('text')
                         .attr('x', availableWidth - 72 - 10)
                         .attr('y', 22)
-                        .text('Rest Zoom');
+                        .text('Reset Zoom');
 
-                    resetZoomButton.style('display', 'none');
                     resetZoomButton.on('click', function() {
-                        resetZoomButton.style('display', 'none');
+                        resetZoomButton.style('display', 'none')
                         var min = d3.min(container.data()[0], function(d) {
                             return d3.min(d.values, function(d) {
                                 return chart.x()(d);
@@ -250,10 +246,13 @@ nv.models.lineChart = function() {
 
                         chart.update();
                     });
+                    resetZoomButton.style('display', 'none')
                 } else {
                     wrap.select(".nv-zoomLayer g.button rect")
-                        .attr('x', availableWidth - 72 - 20)                        
-                }              
+                        .attr('x', availableWidth - 72 - 20)
+                    wrap.select(".nv-zoomLayer g.button text")
+                        .attr('x', availableWidth - 72 - 10)
+                }
             }
 
             g.select('.nv-focus .nv-background rect')
@@ -380,9 +379,11 @@ nv.models.lineChart = function() {
                             return lines.x()(d,i) >= extent[0] && lines.x()(d,i) <= extent[1];
                         });
 
-                        if (e.pointXValue < currentValues[0][0] || e.pointXValue > currentValues[currentValues.length - 1][0]) {
-                            return;
-                        }
+                        if (currentValues && currentValues[0] && currentValues[currentValues.length - 1]) {
+                            if (e.pointXValue < currentValues[0][0] || e.pointXValue > currentValues[currentValues.length - 1][0]) {
+                                return;
+                            }
+                        }                        
 
                         pointIndex = nv.interactiveBisect(currentValues, e.pointXValue, lines.x());
                         var point = currentValues[pointIndex];
@@ -564,7 +565,6 @@ nv.models.lineChart = function() {
                     + 'V' + (2 * y - 8);
             }
 
-            
             function onBrush(extent) {
                 // Update Main (Focus)
                 var focusLinesWrap = g.select('.nv-focus .nv-linesWrap')

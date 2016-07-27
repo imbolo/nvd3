@@ -254,9 +254,8 @@ nv.interactiveGuideline = function() {
 };
 
 /*
-Zoom layer class
-*/
-
+ Utility class to handle creation of a zoom layer
+ */
 nv.zoomLayer = function() {
     'use strict';
     var margin = { left: 0, top: 0 } //Pass the chart's top and left magins. Used to calculate the mouseX/Y.
@@ -268,7 +267,7 @@ nv.zoomLayer = function() {
         ,   svgContainer = null // Must pass the chart's svg, we'll use its mousemove event.
         ,   tooltip = nv.models.tooltip()
         ,   isMSIE = "ActiveXObject" in window // Checkt if IE by looking for activeX.
-    ;
+        ;
 
     function layer(selection) {
         selection.each(function(data) {
@@ -385,7 +384,6 @@ nv.zoomLayer = function() {
                     mouseY: mouseY,
                     pointXValue: pointXValue
                 });
-                
                 if (d3.event.type === 'mousedown') {
                     dispatch.elementDragStart({
                         mouseX: mouseX,
@@ -411,7 +409,7 @@ nv.zoomLayer = function() {
                 }
             }
 
-            svgContainer                
+            svgContainer
                 .on('mousedown.drag', mouseHandler)
                 .on('mousemove.drag', mouseHandler)
                 .on('mouseup.drag', mouseHandler)
@@ -419,19 +417,18 @@ nv.zoomLayer = function() {
 
             layer.guideLine = null;
 
-            
             layer.renderSelectArea = function(x) {
                 if (!showGuideLine) return;
                 if (layer.guideLine && layer.guideLine.attr("x1") === x) return;
                 nv.dom.write(function() {
                     var selectArea = wrap.select(".nv-zoomGuideArea");                    
-                    selectArea.append('rect')                                                                    
+                    selectArea.append('rect')
                         .attr('fill-opacity', 0.4)
                         .attr('fill', '#C8D3E2')
                         .attr('x', x)
                         .attr('y', 0)
                         .attr('width', 1)
-                        .attr('height', availableHeight)                                        
+                        .attr('height', availableHeight)
                 });
             };
 
@@ -448,7 +445,7 @@ nv.zoomLayer = function() {
         });
     }
 
-    layer.dispatch = dispatch;    
+    layer.dispatch = dispatch;
 
     layer.margin = function(_) {
         if (!arguments.length) return margin;
@@ -474,7 +471,6 @@ nv.zoomLayer = function() {
         xScale = _;
         return layer;
     };
-    
     layer.svgContainer = function(_) {
         if (!arguments.length) return svgContainer;
         svgContainer = _;
