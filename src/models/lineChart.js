@@ -158,7 +158,7 @@ nv.models.lineChart = function() {
                     .call(legend);
 
                 if (legendPosition === 'bottom') {
-                  var height = availableHeight - legend.height();
+                  availableHeight = availableHeight - legend.height();
                     //availableHeight1 = nv.utils.availableHeight(height, container, margin) - (focusEnable ? focusHeight : 0);
                     //availableHeight1 = availableHeight1 - legend.height();
                   wrap.select('.nv-legendWrap')

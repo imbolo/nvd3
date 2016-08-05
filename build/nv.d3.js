@@ -1,4 +1,4 @@
-/* nvd3 version 1.8.3-dev (https://github.com/novus/nvd3) 2016-07-27 */
+/* nvd3 version 1.8.3-dev (https://github.com/novus/nvd3) 2016-08-05 */
 (function(){
 
 // set up main nv object
@@ -6290,7 +6290,10 @@ nv.models.legend = function() {
         , expanded = false
         , dispatch = d3.dispatch('legendClick', 'legendDblclick', 'legendMouseover', 'legendMouseout', 'stateChange')
         , vers = 'classic' //Options are "classic" and "furious"
-        ;
+        , maxHeight = undefined;
+
+    var currentPage = 1;
+    var windowResizeHandler;
 
     function chart(selection) {
         selection.each(function(data) {
@@ -6300,8 +6303,12 @@ nv.models.legend = function() {
 
             // Setup containers and skeleton of chart
             var wrap = container.selectAll('g.nv-legend').data([data]);
-            var gEnter = wrap.enter().append('g').attr('class', 'nvd3 nv-legend').append('g');
-            var g = wrap.select('g');
+            var gEnter = wrap.enter().append('g').attr('class', 'nvd3 nv-legend')
+                .append('g').attr('clip-path', 'url(#nvLegendClipPath)')
+                .append('g').attr('class', 'nv-legend-list-wrapper').attr('transform', 'translate(0,0)')
+                .append('g')
+                               
+            var g = wrap.select('g.nv-legend-list-wrapper g');
 
             wrap.attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
 
@@ -6546,6 +6553,131 @@ nv.models.legend = function() {
                 height = margin.top + margin.bottom + ypos + 15;
             }
 
+            var totalPage = height / maxHeight;
+            if (maxHeight && totalPage > 1) {                
+
+                wrap.enter().append('defs')
+                .append('clipPath').attr('id', 'nvLegendClipPath')
+                .append('rect')
+                    .attr('x', 0)
+                    .attr('y', 0)
+                    .attr('width', '1000000')
+                    .attr('height', maxHeight)
+
+                var currentTranslate = getTranslateValue(g);    
+                //turn page button    
+                wrap.enter().append('g').attr('id', 'pagination').html('\
+                    <g zIndex="1" visibility="visible" transform="translate(' + currentTranslate[0] + ',' + (maxHeight + 10) + ')">\
+                      <path id="previousButton" fill="#CCC" d="M 6 0 L 12 12 0 12 Z" style="cursor:default;"></path>\
+                      <text x="15" y="10" style="font-family:&quot;Lucida Grande&quot;, &quot;Lucida Sans Unicode&quot;, Verdana, Arial, Helvetica, sans-serif;font-size:12px;">\
+                        <tspan id="page" x="15">1/5</tspan>\
+                      </text>\
+                      <path id="nextButton" fill="#274b6d" d="M 39.46875 0 L 51.46875 0 45.46875 12 Z" style="cursor:pointer;"></path>\
+                    </g>');
+                var previous = container.select('path#previousButton');
+                var next = container.select('path#nextButton');  
+                var legendList = container.select('.nv-legend-list-wrapper');              
+                var pageNumber = container.select('tspan#page');                
+                var totalHeight = height;
+                
+                changePageNumber()
+                height = maxHeight + margin.top + margin.bottom + 20;
+
+                previous.on('click', function() {
+                    !isFirstPage() && turnPage(legendList, true);                     
+                })
+                next.on('click', function() {
+                    !isLastPage() && turnPage(legendList, false);                    
+                })
+
+                if (windowResizeHandler) {
+                    windowResizeHandler.clear();
+                }
+                windowResizeHandler = nv.utils.windowResize(function() {                                    
+                    turnToFirstPage(legendList)                                
+                });
+
+                function isLastPage() {
+                    return currentPage >= totalPage;
+                }
+
+                function isFirstPage() {
+                    return currentPage <= 1;
+                }                
+
+                function setTurnPageButtonStatus() {
+                    if (currentPage >= totalPage) {
+                        next.attr('fill', '#CCC').style('cursor', 'default')
+                    } else {
+                        next.attr('fill', '#274b6d').style('cursor', 'pointer')
+                    }
+
+                    if (currentPage > 1) {
+                        previous.attr('fill', '#274b6d').style('cursor', 'pointer')                        
+                    } else {                        
+                        previous.attr('fill', '#CCC').style('cursor', 'default')
+                    }
+                }
+
+                function changePageNumber() {
+                    pageNumber.text(currentPage + '/' + Math.ceil(totalPage))
+                }
+
+                var isInTransition = false;
+                function turnToFirstPage(legendList) {
+                    if (isInTransition) {
+                        return;
+                    }  
+                    isInTransition = true; 
+                    legendList.attr('transform', 'translate(0,0)');
+                    currentPage = 1;
+                    changePageNumber();
+                    setTurnPageButtonStatus();
+                }
+
+                function turnPage(legendList, toPrevious) {  
+                    if (isInTransition) {
+                        return;
+                    }  
+                    isInTransition = true;       
+                    var legendListTranslateValue = getTranslateValue(legendList);
+                    var left = (legendListTranslateValue && legendListTranslateValue[0]) || margin.left;
+                    var top = (legendListTranslateValue && legendListTranslateValue[1]) || margin.top;
+                    top = top - 0;
+                    var newTop;            
+                    if (toPrevious) {
+                        currentPage -= 1;
+                        if (totalPage - currentPage > 1) {
+                            newTop = top + maxHeight
+                        } else {
+                            newTop = top + maxHeight * (totalPage - currentPage)
+                        }                        
+                    } else {
+                        if (totalPage - currentPage > 1) {
+                            newTop = top - maxHeight
+                        } else {
+                            newTop = top - maxHeight * (totalPage - currentPage)
+                        }   
+                        currentPage += 1;
+                    }
+                    legendList.transition().duration(500).attr('transform', 'translate(' + left + ',' + newTop + ')').each('end', function() {
+                        isInTransition = false;
+                    });
+
+                    changePageNumber();
+                    setTurnPageButtonStatus();
+                }
+
+                function getTranslateValue(element) {
+                    var matchedTransform = element.attr('transform').match(/translate\(([^,]*),([^\)]*)/);
+                    return [
+                        matchedTransform[1],
+                        matchedTransform[2]
+                    ]
+                }
+
+            }
+
             if(vers == 'furious') {
                 // Size rectangles after text is placed
                 seriesShape
@@ -6632,6 +6764,7 @@ nv.models.legend = function() {
         radioButtonMode:    {get: function(){return radioButtonMode;}, set: function(_){radioButtonMode=_;}},
         expanded:   {get: function(){return expanded;}, set: function(_){expanded=_;}},
         vers:   {get: function(){return vers;}, set: function(_){vers=_;}},
+        maxHeight: {get: function(){return maxHeight;}, set: function(_){maxHeight=_;}},
 
         // options that require extra logic in the setter
         margin: {get: function(){return margin;}, set: function(_){
@@ -7038,7 +7171,7 @@ nv.models.lineChart = function() {
                     .call(legend);
 
                 if (legendPosition === 'bottom') {
-                  var height = availableHeight - legend.height();
+                  availableHeight = availableHeight - legend.height();
                     //availableHeight1 = nv.utils.availableHeight(height, container, margin) - (focusEnable ? focusHeight : 0);
                     //availableHeight1 = availableHeight1 - legend.height();
                   wrap.select('.nv-legendWrap')
@@ -12093,6 +12226,20 @@ nv.models.pieChart = function() {
                         .datum(data)
                         .call(legend)
                         .attr('transform', 'translate(' + (availableWidth) +',0)');
+                } else if (legendPosition == 'bottom') {
+                    legend.width( availableWidth ).key(pie.x());
+
+                    wrap.select('.nv-legendWrap')
+                        .datum(data)
+                        .call(legend);
+
+                    if ( margin.bottom != legend.height()) {
+                        margin.bottom = legend.height();
+                        availableHeight = nv.utils.availableHeight(height, container, margin);
+                    }
+
+                    wrap.select('.nv-legendWrap')
+                        .attr('transform', 'translate(0,' + availableHeight +')');
                 }
             }
             wrap.attr('transform', 'translate(' + margin.left + ',' + margin.top + ')');
