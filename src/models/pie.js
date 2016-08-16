@@ -233,7 +233,14 @@ nv.models.pie = function() {
                 var outerArc = d3.svg.arc()
                   .innerRadius(radius * 0.9)
                   .outerRadius(radius * 0.9);
-                labelPolyline.enter().append('polyline').classed('label-polyline', true)
+                labelPolyline.enter()
+                    .append('polyline')
+                    .classed('label-polyline', true)
+                    .attr('fill', 'none')
+                    .attr('opacity', 0.3)
+                    .attr('stroke', 'black')
+                    .attr('stroke-width', '1px')
+                    
                 labelPolyline.transition().duration(300)
                     .attrTween('points', function(d, index) {
                         var percent = getSlicePercentage(d);                    
