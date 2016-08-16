@@ -15,6 +15,7 @@ nv.models.pie = function() {
         , color = nv.utils.defaultColor()
         , valueFormat = d3.format(',.2f')
         , showLabels = true
+        , showLabelWithLine = false
         , labelsOutside = false
         , labelType = "key"
         , labelThreshold = .02 //if slice percentage is under this, don't show label
@@ -151,9 +152,13 @@ nv.models.pie = function() {
 
             var slices = wrap.select('.nv-pie').selectAll('.nv-slice').data(pie);
             var pieLabels = wrap.select('.nv-pieLabels').selectAll('.nv-label').data(pie);
+            var labels = wrap.select('.nv-pieLabels').selectAll('.label').data(pie)
+            var labelPolyline = wrap.select('.nv-pieLabels').selectAll('.label-polyline').data(pie)
 
             slices.exit().remove();
             pieLabels.exit().remove();
+            labels.exit().remove()
+            labelPolyline.exit().remove();
 
             var ae = slices.enter().append('g');
             ae.attr('class', 'nv-slice');
@@ -213,6 +218,64 @@ nv.models.pie = function() {
                 .attr('d', function (d, i) { return arcs[i](d); })
                 .attrTween('d', arcTween);
 
+            if (showLabelWithLine) {
+                 var getSlicePercentage = function(d) {
+                    return (d.endAngle - d.startAngle) / (2 * Math.PI);
+                };    
+                var midAngle = function(d){
+                   return d.startAngle + (d.endAngle - d.startAngle)/2;
+                }                
+
+                var arc = d3.svg.arc()
+                  .outerRadius(radius * 0.8)
+                  .innerRadius(radius * 0.8);
+
+                var outerArc = d3.svg.arc()
+                  .innerRadius(radius * 0.9)
+                  .outerRadius(radius * 0.9);
+                labelPolyline.enter().append('polyline').classed('label-polyline', true)
+                labelPolyline.transition().duration(300)
+                    .attrTween('points', function(d, index) {
+                        var percent = getSlicePercentage(d);                    
+                        if (!d.value || percent < labelThreshold) {
+                            return function(t) {
+                                return [[0, 0], [0, 0], [0, 0]]
+                            };
+                        }
+
+                        this._current = this._current || d;
+                        var interpolate = d3.interpolate(this._current, d);
+                        this._current = interpolate(0);
+                        return function(t) {
+                            var d2 = interpolate(t);
+                            var pos = outerArc.centroid(d2);
+                            pos[0] = radius * 0.95 * (midAngle(d2) < Math.PI ? 1 : -1);
+                            return [arc.centroid(d2), outerArc.centroid(d2), pos];
+                        };          
+                    })
+                
+
+                labels.enter().append('text').classed('label', true).attr("dy", ".35em")            
+                labels.transition().duration(300)
+                    .text(function(d) {
+                        var percent = getSlicePercentage(d);                    
+                        if (!d.value || percent < labelThreshold) return '';
+                        return getX(d.data);
+                    })
+                    .attrTween("transform", function(d) {                    
+                        this._current = this._current || d;
+                        var interpolate = d3.interpolate(this._current, d);
+                        this._current = interpolate(0);
+                        return function(t) {
+                            var d2 = interpolate(t);
+                            var pos = outerArc.centroid(d2);
+                            pos[0] = radius * 1.1 * (midAngle(d2) < Math.PI ? 1 : -1) - 8;
+                            return "translate("+ pos +")";
+                        };
+                    })   
+            }  
+
+
             if (showLabels) {
                 // This does the normal label
                 var labelsArc = [];
@@ -261,7 +324,7 @@ nv.models.pie = function() {
                         .style('text-anchor', labelSunbeamLayout ? ((d.startAngle + d.endAngle) / 2 < Math.PI ? 'start' : 'end') : 'middle') //center the text on it's origin or begin/end if orthogonal aligned
                         .style('fill', '#000')
                 });
-
+                                
                 var labelLocationHash = {};
                 var avgHeight = 14;
                 var avgWidth = 140;
@@ -291,7 +354,7 @@ nv.models.pie = function() {
                         Overlapping pie labels are not good. What this attempts to do is, prevent overlapping.
                         Each label location is hashed, and if a hash collision occurs, we assume an overlap.
                         Adjust the label's y-position to remove the overlap.
-                        */
+                        */                        
                         var center = labelsArc[i].centroid(d);
                         var percent = getSlicePercentage(d);
                         if (d.value && percent >= labelThreshold) {
@@ -303,7 +366,7 @@ nv.models.pie = function() {
                         }
                         return 'translate(' + center + ')'
                     }
-                });
+                });                
 
                 pieLabels.select(".nv-label text")
                     .style('text-anchor', function(d,i) {
@@ -375,6 +438,7 @@ nv.models.pie = function() {
         width:      {get: function(){return width;}, set: function(_){width=_;}},
         height:     {get: function(){return height;}, set: function(_){height=_;}},
         showLabels: {get: function(){return showLabels;}, set: function(_){showLabels=_;}},
+        showLabelWithLine: {get: function(){return showLabelWithLine;}, set: function(_){showLabelWithLine=_;}},
         title:      {get: function(){return title;}, set: function(_){title=_;}},
         titleOffset:    {get: function(){return titleOffset;}, set: function(_){titleOffset=_;}},
         labelThreshold: {get: function(){return labelThreshold;}, set: function(_){labelThreshold=_;}},

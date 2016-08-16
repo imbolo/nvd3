@@ -283,8 +283,46 @@ nv.models.legend = function() {
             }
 
             var totalPage = height / maxHeight;
-            if (maxHeight && totalPage > 1) {                
+            if (maxHeight && totalPage > 1) {                                
+                setupLegendPagination()
+            }
 
+            if(vers == 'furious') {
+                // Size rectangles after text is placed
+                seriesShape
+                    .attr('width', function(d,i) {
+                        return seriesText[0][i].getComputedTextLength() + 27;
+                    })
+                    .attr('height', 18)
+                    .attr('y', -9)
+                    .attr('x', -15);
+
+                // The background for the expanded legend (UI)
+                gEnter.insert('rect',':first-child')
+                    .attr('class', 'nv-legend-bg')
+                    .attr('fill', '#eee')
+                    // .attr('stroke', '#444')
+                    .attr('opacity',0);
+
+                var seriesBG = g.select('.nv-legend-bg');
+
+                seriesBG
+                .transition().duration(300)
+                    .attr('x', -versPadding )
+                    .attr('width', legendWidth + versPadding - 12)
+                    .attr('height', height + 10)
+                    .attr('y', -margin.top - 10)
+                    .attr('opacity', expanded ? 1 : 0);
+
+
+            }
+
+            seriesShape
+                .style('fill', setBGColor)
+                .style('fill-opacity', setBGOpacity)
+                .style('stroke', setBGColor);
+
+            function setupLegendPagination() {
                 wrap.enter().append('defs')
                 .append('clipPath').attr('id', 'nvLegendClipPath')
                 .append('rect')
@@ -404,43 +442,7 @@ nv.models.legend = function() {
                         matchedTransform[2]
                     ]
                 }
-
-            }
-
-            if(vers == 'furious') {
-                // Size rectangles after text is placed
-                seriesShape
-                    .attr('width', function(d,i) {
-                        return seriesText[0][i].getComputedTextLength() + 27;
-                    })
-                    .attr('height', 18)
-                    .attr('y', -9)
-                    .attr('x', -15);
-
-                // The background for the expanded legend (UI)
-                gEnter.insert('rect',':first-child')
-                    .attr('class', 'nv-legend-bg')
-                    .attr('fill', '#eee')
-                    // .attr('stroke', '#444')
-                    .attr('opacity',0);
-
-                var seriesBG = g.select('.nv-legend-bg');
-
-                seriesBG
-                .transition().duration(300)
-                    .attr('x', -versPadding )
-                    .attr('width', legendWidth + versPadding - 12)
-                    .attr('height', height + 10)
-                    .attr('y', -margin.top - 10)
-                    .attr('opacity', expanded ? 1 : 0);
-
-
-            }
-
-            seriesShape
-                .style('fill', setBGColor)
-                .style('fill-opacity', setBGOpacity)
-                .style('stroke', setBGColor);
+            }    
         });
 
         function setTextColor(d,i) {

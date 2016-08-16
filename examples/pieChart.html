@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <link href="../build/nv.d3.css" rel="stylesheet" type="text/css">
-    <script src="//cdn.bootcss.com/d3/3.5.2/d3.js"></script>
+    <script src="//cdn.bootcss.com/d3/3.5.17/d3.js"></script>
     <script src="../build/nv.d3.js"></script>
     <script src="lib/stream_layers.js"></script>
 
@@ -22,6 +22,12 @@
             padding: 0px;
             height: 100%;
             width: 100%;
+        }
+        .nvd3 .nv-pieLabels polyline {
+            opacity: .3;
+            stroke: black;
+            stroke-width: 1px;
+            fill: none;
         }
     </style>
 </head>
@@ -69,7 +75,15 @@
             .width(width)
             .height(height)
             .showLegend(true)
+            .showLabels(false)
+            .showLabelWithLine(true)
+            .labelsOutside(true)
+            .labelThreshold(0.035)
             .showTooltipPercent(true);
+
+        chart.legend.options({
+            maxHeight: 75
+        })    
 
         d3.select("#test1")
             .datum(testdata2)
