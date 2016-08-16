@@ -18,6 +18,7 @@ nv.interactiveGuideline = function() {
         ,   svgContainer = null // Must pass the chart's svg, we'll use its mousemove event.
         ,   tooltip = nv.models.tooltip()
         ,   isMSIE = "ActiveXObject" in window // Checkt if IE by looking for activeX.
+        ,   xAccessor = function(d) {return d.x}
     ;
 
     tooltip
@@ -38,6 +39,11 @@ nv.interactiveGuideline = function() {
             if (!svgContainer) {
                 return;
             }
+
+            var availableDataCollection = data.filter(function(series, i) {
+                series.seriesIndex = i;
+                return !series.disabled;
+            });
 
             function mouseHandler() {
                 var d3mouse = d3.mouse(this);
@@ -135,10 +141,16 @@ nv.interactiveGuideline = function() {
                     pointXValue = xScale.invert(mouseX);
                 }
 
+                var dataPointInfo = nv.getDataPointInfo(availableDataCollection, pointXValue, xAccessor);
+                var point = dataPointInfo.point;
+                var pointIndex = dataPointInfo.pointIndex;
+
                 dispatch.elementMousemove({
                     mouseX: mouseX,
                     mouseY: mouseY,
-                    pointXValue: pointXValue
+                    pointXValue: pointXValue,
+                    point: point,
+                    pointIndex: pointIndex
                 });
 
                 //If user double clicks the layer, fire a elementDblclick
@@ -146,7 +158,9 @@ nv.interactiveGuideline = function() {
                     dispatch.elementDblclick({
                         mouseX: mouseX,
                         mouseY: mouseY,
-                        pointXValue: pointXValue
+                        pointXValue: pointXValue,
+                        point: point,
+                        pointIndex: pointIndex
                     });
                 }
 
@@ -155,7 +169,9 @@ nv.interactiveGuideline = function() {
                     dispatch.elementClick({
                         mouseX: mouseX,
                         mouseY: mouseY,
-                        pointXValue: pointXValue
+                        pointXValue: pointXValue,
+                        point: point,
+                        pointIndex: pointIndex
                     });
                 }
 
@@ -164,7 +180,9 @@ nv.interactiveGuideline = function() {
                 	dispatch.elementMouseDown({
                 		mouseX: mouseX,
                 		mouseY: mouseY,
-                		pointXValue: pointXValue
+                		pointXValue: pointXValue,
+                        point: point,
+                        pointIndex: pointIndex
                 	});
                 }
 
@@ -173,7 +191,9 @@ nv.interactiveGuideline = function() {
                 	dispatch.elementMouseUp({
                 		mouseX: mouseX,
                 		mouseY: mouseY,
-                		pointXValue: pointXValue
+                		pointXValue: pointXValue,
+                        point: point,
+                        pointIndex: pointIndex
                 	});
                 }
             }
@@ -250,6 +270,12 @@ nv.interactiveGuideline = function() {
         return layer;
     };
 
+    layer.xAccessor = function(_) {
+        if (!arguments.length) return xAccessor;
+        xAccessor = _;
+        return layer;
+    };
+
     return layer;
 };
 
@@ -267,6 +293,7 @@ nv.zoomLayer = function() {
         ,   svgContainer = null // Must pass the chart's svg, we'll use its mousemove event.
         ,   tooltip = nv.models.tooltip()
         ,   isMSIE = "ActiveXObject" in window // Checkt if IE by looking for activeX.
+        ,   xAccessor = function (d) {return d.x}
         ;
 
     function layer(selection) {
@@ -282,6 +309,11 @@ nv.zoomLayer = function() {
             if (!svgContainer) {
                 return;
             }
+
+            var availableDataCollection = data.filter(function(series, i) {
+                series.seriesIndex = i;
+                return !series.disabled;
+            });
 
             function mouseHandler() {
                 var d3mouse = d3.mouse(this);
@@ -379,16 +411,25 @@ nv.zoomLayer = function() {
                     pointXValue = xScale.invert(mouseX);
                 }
 
+                var availableDataCollection = data.filter(function(series, i) {
+                    series.seriesIndex = i;
+                    return !series.disabled;
+                });
+
                 dispatch.elementMousemove({
                     mouseX: mouseX,
                     mouseY: mouseY,
-                    pointXValue: pointXValue
+                    pointXValue: pointXValue,
+                    point: point,
+                    pointIndex: pointIndex
                 });
                 if (d3.event.type === 'mousedown') {
                     dispatch.elementDragStart({
                         mouseX: mouseX,
                         mouseY: mouseY,
-                        pointXValue: pointXValue
+                        pointXValue: pointXValue,
+                        point: point,
+                        pointIndex: pointIndex
                     });
                 }
 
@@ -396,7 +437,9 @@ nv.zoomLayer = function() {
                     dispatch.elementMousemove({
                         mouseX: mouseX,
                         mouseY: mouseY,
-                        pointXValue: pointXValue
+                        pointXValue: pointXValue,
+                        point: point,
+                        pointIndex: pointIndex
                     });
                 }
 
@@ -404,7 +447,9 @@ nv.zoomLayer = function() {
                     dispatch.elementDragEnd({
                         mouseX: mouseX,
                         mouseY: mouseY,
-                        pointXValue: pointXValue
+                        pointXValue: pointXValue,
+                        point: point,
+                        pointIndex: pointIndex
                     });
                 }
             }
@@ -477,9 +522,31 @@ nv.zoomLayer = function() {
         return layer;
     };
 
+    layer.xAccessor = function(_) {
+        if (!arguments.length) return xAccessor;
+        xAccessor = _;
+        return layer;
+    };
+
     return layer;
 };
 
+nv.getDataPointInfo = function (availableDataCollection, pointXValue, xAccessor) {
+    var pointIndex;
+    var point = null;
+    for (var i=0; i < availableDataCollection.length; i++) {                        
+        var series = availableDataCollection[i];
+        var pointIndex = nv.interactiveBisect(series.values, pointXValue, xAccessor);
+        if (pointIndex != null) {
+            point = series.values[pointIndex]
+            break;
+        }            
+    }  
+    return {
+        point: point,
+        pointIndex: pointIndex
+    };
+}
 /* Utility class that uses d3.bisect to find the index in a given array, where a search value can be inserted.
  This is different from normal bisectLeft; this function finds the nearest index to insert the search value.
 

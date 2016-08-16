@@ -267,7 +267,27 @@ nv.models.pie = function() {
                     .text(function(d) {
                         var percent = getSlicePercentage(d);                    
                         if (!d.value || percent < labelThreshold) return '';
-                        return getX(d.data);
+                        var label = ''
+                        if(typeof labelType === 'function') {
+                            label = labelType(d, i, {
+                                'key': getX(d.data),
+                                'value': getY(d.data),
+                                'percent': valueFormat(percent)
+                            });
+                        } else {
+                            switch (labelType) {
+                                case 'key':
+                                    label = getX(d.data);
+                                    break;
+                                case 'value':
+                                    label = valueFormat(getY(d.data));
+                                    break;
+                                case 'percent':
+                                    label = d3.format('%')(percent);
+                                    break;
+                            }
+                        }
+                        return label;
                     })
                     .attrTween("transform", function(d) {                    
                         this._current = this._current || d;
