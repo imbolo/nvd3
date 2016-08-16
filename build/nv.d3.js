@@ -591,11 +591,10 @@ nv.zoomLayer = function() {
                 else {
                     pointXValue = xScale.invert(mouseX);
                 }
-
-                var availableDataCollection = data.filter(function(series, i) {
-                    series.seriesIndex = i;
-                    return !series.disabled;
-                });
+               
+                var dataPointInfo = nv.getDataPointInfo(availableDataCollection, pointXValue, xAccessor);
+                var point = dataPointInfo.point;
+                var pointIndex = dataPointInfo.pointIndex;
 
                 dispatch.elementMousemove({
                     mouseX: mouseX,
