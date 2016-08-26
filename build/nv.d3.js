@@ -1,4 +1,4 @@
-/* nvd3 version 1.8.3 (https://github.com/novus/nvd3) 2016-08-16 */
+/* nvd3 version 1.8.3 (https://github.com/novus/nvd3) 2016-08-26 */
 (function(){
 
 // set up main nv object
@@ -11758,6 +11758,7 @@ nv.models.pie = function() {
 
     var arcs = [];
     var arcsOver = [];
+    var labelPieDistance = 25;
 
     //============================================================
     // chart function
@@ -11768,6 +11769,21 @@ nv.models.pie = function() {
     function chart(selection) {
         renderWatch.reset();
         selection.each(function(data) {
+            if (showLabelWithLine) {
+                var maxLabelCount = Math.floor(8 + 3 * (height - 150) / 100);
+                maxLabelCount = d3.min([maxLabelCount, data[0].length]);                
+                var totalValue = 0; 
+                var copiedData = data[0].map(function(item) {
+                    totalValue += getY(item);
+                    return item;
+                });
+                var minItem = copiedData.sort(function(a, b) {
+                    return getY(b) - getY(a);
+                }).slice(0, maxLabelCount)[maxLabelCount - 1]
+                
+                labelThreshold = getY(minItem) / totalValue - 0.0001;
+                labelPieDistance = 25 + ((height - 350) / 350) * 10;
+            }
             var availableWidth = width - margin.left - margin.right
                 , availableHeight = height - margin.top - margin.bottom
                 , radius = Math.min(availableWidth, availableHeight) / 2
@@ -11942,12 +11958,208 @@ nv.models.pie = function() {
                 .attrTween('d', arcTween);
 
             if (showLabelWithLine) {
-                 var getSlicePercentage = function(d) {
+                var labelsData = [];
+                var isLabelHidden = function (i) {
+                    if (!labelsData[i]) {
+                        return false;
+                    }
+                    var d = labelsData[i].d;
+                    var percent = getSlicePercentage(d);
+                    if (!d.value || percent < labelThreshold) {
+                        return true;
+                    }
+                    return false
+                }
+
+                var rectIntersect = function (r1, r2) {
+
+                    var returnVal = (
+                        // r2.left > r1.right
+                        (r2.x > (r1.x + r1.w)) ||
+
+                        // r2.right < r1.left
+                        ((r2.x + r2.w) < r1.x) ||
+
+                        // r2.top < r1.bottom
+                        ((r2.y + r2.h) < r1.y) ||
+
+                        // r2.bottom > r1.top
+                        (r2.y > (r1.y + r1.h))
+                    );
+
+                    return !returnVal;
+                }
+                var rotate = function (x, y, xm, ym, a) {
+                    // a = a * Math.PI / 180; // convert to radians
+
+                    var cos = Math.cos,
+                        sin = Math.sin,
+                    // subtract midpoints, so that midpoint is translated to origin and add it in the end again
+                    xr = (x - xm) * cos(a) - (y - ym) * sin(a) + xm,
+                    yr = (x - xm) * sin(a) + (y - ym) * cos(a) + ym;
+
+                    return { x: xr, y: yr };
+                }
+                var getLabelLineData = function () {
+                    var lineData = []
+                    labelsData.forEach(function(data, i) {
+                        var percent = getSlicePercentage(data.d);
+                        // if (true) {
+                        if (data.d.value && percent > labelThreshold) {
+                            var angle = midAngle(data.d);
+                            var pieCenter = {
+                                x: 0,//availableWidth / 2,
+                                y: 0,//availableHeight / 2,
+                                radius: radius * 0.8
+                            };
+                            var originCoords = rotate(pieCenter.x, pieCenter.y - pieCenter.radius, pieCenter.x, pieCenter.y, angle);
+                            var heightOffset = data.h / 10; // TODO check
+                            var labelXMargin = 2; // the x-distance of the label from the end of the line [TODO configurable]
+
+                            var quarter = Math.floor(angle / (Math.PI / 2));
+                            var midPoint = 4;
+                            var x2, y2, x3, y3;
+
+                            // this resolves an issue when the
+                            if (quarter === 2 && angle === Math.PI) {
+                                quarter = 1;
+                            }
+
+                            switch (quarter) {
+                                case 0:
+                                    x2 = data.x - labelXMargin - ((data.x - labelXMargin - originCoords.x) / 2);
+                                    y2 = data.y + ((originCoords.y - data.y) / midPoint);
+                                    x3 = data.x - labelXMargin;
+                                    y3 = data.y - heightOffset;
+                                    break;
+                                case 1:
+                                    x2 = originCoords.x + (data.x - originCoords.x) / midPoint;
+                                    y2 = originCoords.y + (data.y - originCoords.y) / midPoint;
+                                    x3 = data.x - labelXMargin;
+                                    y3 = data.y - heightOffset;
+                                    break;
+                                case 2:
+                                    var startOfLabelX = data.x + data.w + labelXMargin;
+                                    x2 = originCoords.x - (originCoords.x - startOfLabelX) / midPoint;
+                                    y2 = originCoords.y + (data.y - originCoords.y) / midPoint;
+                                    x3 = data.x + data.w + labelXMargin;
+                                    y3 = data.y - heightOffset;
+                                    break;
+                                case 3:
+                                    var startOfLabel = data.x + data.w + labelXMargin;
+                                    x2 = startOfLabel + ((originCoords.x - startOfLabel) / midPoint);
+                                    y2 = data.y + (originCoords.y - data.y) / midPoint;
+                                    x3 = data.x + data.w + labelXMargin;
+                                    y3 = data.y - heightOffset;
+                                    break;
+                            }
+                            var item = [
+                                {x: originCoords.x, y: originCoords.y},
+                                {x: x2, y: y2},
+                                {x: x3, y: y3}
+                            ];
+                            item.color = color(data.d, i);
+                            lineData.push(item)
+                        } else {
+                            var item = [
+                                {x: 0, y: 0},
+                                {x: 0, y: 0},
+                                {x: 0, y: 0}
+                            ];
+                            item.color = color(data.d, i);
+                            lineData.push(item)
+                        }
+                    })
+
+                    return lineData;
+                }
+                var adjustLabelPos = function (nextIndex, lastCorrectlyPositionedLabel, info) {
+                    var xDiff, yDiff, newXPos, newYPos;
+                    newYPos = lastCorrectlyPositionedLabel.y + info.heightChange;
+                    yDiff = info.center.y - newYPos;
+                    if (Math.abs(info.lineLength) > Math.abs(yDiff)) {
+                        xDiff = Math.sqrt((info.lineLength * info.lineLength) - (yDiff * yDiff));
+                    } else {
+                        xDiff = Math.sqrt((yDiff * yDiff) - (info.lineLength * info.lineLength));
+                    }
+
+                    if (lastCorrectlyPositionedLabel.hs === "right") {
+                        newXPos = info.center.x + xDiff;
+                    } else {
+                        newXPos = info.center.x - xDiff - labelsData[nextIndex].w;
+                    }
+
+                    labelsData[nextIndex].x = newXPos;
+                    labelsData[nextIndex].y = newYPos;
+                }
+
+                var labelHeight;
+
+                var checkConflict = function (currIndex, direction, size) {
+                    var i, curr;
+
+                    if (size <= 1) {
+                        return;
+                    }
+
+                    var currIndexHemisphere = labelsData[currIndex].hs;
+                    if (direction === "clockwise" && currIndexHemisphere !== "right") {
+                        return;
+                    }
+                    if (direction === "anticlockwise" && currIndexHemisphere !== "left") {
+                        return;
+                    }
+                    var nextIndex = (direction === "clockwise") ? currIndex+1 : currIndex-1;
+
+                    // this is the current label group being looked at. We KNOW it's positioned properly (the first item
+                    // is always correct)
+                    var currLabelGroup = labelsData[currIndex];
+
+                    // this one we don't know about. That's the one we're going to look at and move if necessary
+                    var examinedLabelGroup = labelsData[nextIndex];
+
+                    var info = {
+                        center: {x: 0, y: 0},
+                        lineLength: (radius * 0.8 + labelPieDistance),
+                        heightChange: labelsData[0].h || labelHeight + 1 // 1 = padding
+                    };
+
+                    // loop through *ALL* label groups examined so far to check for conflicts. This is because when they're
+                    // very tightly fitted, a later label group may still appear high up on the page
+                    if (direction === "clockwise") {
+                        i = 0;
+                        for (; i<=currIndex; i++) {
+                            curr = labelsData[i];
+
+                            // if there's a conflict with this label group, shift the label to be AFTER the last known
+                            // one that's been properly placed
+                            if (!isLabelHidden(nextIndex) && !isLabelHidden(i) && rectIntersect(curr, examinedLabelGroup)) {
+                                adjustLabelPos(nextIndex, curr, info);
+                                // break;
+                            }
+                        }
+                    } else {
+                        i = size - 1;
+                        for (; i >= currIndex; i--) {
+                            curr = labelsData[i];
+
+                            // if there's a conflict with this label group, shift the label to be AFTER the last known
+                            // one that's been properly placed
+                            if (!isLabelHidden(nextIndex) && !isLabelHidden(i) && rectIntersect(curr, examinedLabelGroup)) {
+                                adjustLabelPos(nextIndex, curr, info);
+                                // break;
+                            }
+                        }
+                    }
+                    checkConflict(nextIndex, direction, size);
+                }
+
+                var getSlicePercentage = function(d) {
                     return (d.endAngle - d.startAngle) / (2 * Math.PI);
-                };    
+                };
                 var midAngle = function(d){
                    return d.startAngle + (d.endAngle - d.startAngle)/2;
-                }                
+                }
 
                 var arc = d3.svg.arc()
                   .outerRadius(radius * 0.8)
@@ -11956,39 +12168,11 @@ nv.models.pie = function() {
                 var outerArc = d3.svg.arc()
                   .innerRadius(radius * 0.9)
                   .outerRadius(radius * 0.9);
-                labelPolyline.enter()
-                    .append('polyline')
-                    .classed('label-polyline', true)
-                    .attr('fill', 'none')
-                    .attr('opacity', 0.3)
-                    .attr('stroke', 'black')
-                    .attr('stroke-width', '1px')
-                    
-                labelPolyline.transition().duration(300)
-                    .attrTween('points', function(d, index) {
-                        var percent = getSlicePercentage(d);                    
-                        if (!d.value || percent < labelThreshold) {
-                            return function(t) {
-                                return [[0, 0], [0, 0], [0, 0]]
-                            };
-                        }
 
-                        this._current = this._current || d;
-                        var interpolate = d3.interpolate(this._current, d);
-                        this._current = interpolate(0);
-                        return function(t) {
-                            var d2 = interpolate(t);
-                            var pos = outerArc.centroid(d2);
-                            pos[0] = radius * 0.95 * (midAngle(d2) < Math.PI ? 1 : -1);
-                            return [arc.centroid(d2), outerArc.centroid(d2), pos];
-                        };          
-                    })
-                
-
-                labels.enter().append('text').classed('label', true).attr("dy", ".35em")            
+                labels.enter().append('text').classed('label', true).attr("dy", ".35em")
                 labels.transition().duration(300)
                     .text(function(d) {
-                        var percent = getSlicePercentage(d);                    
+                        var percent = getSlicePercentage(d);
                         if (!d.value || percent < labelThreshold) return '';
                         var label = ''
                         if(typeof labelType === 'function') {
@@ -12012,18 +12196,90 @@ nv.models.pie = function() {
                         }
                         return label;
                     })
-                    .attrTween("transform", function(d) {                    
-                        this._current = this._current || d;
-                        var interpolate = d3.interpolate(this._current, d);
-                        this._current = interpolate(0);
-                        return function(t) {
-                            var d2 = interpolate(t);
-                            var pos = outerArc.centroid(d2);
-                            pos[0] = radius * 1.1 * (midAngle(d2) < Math.PI ? 1 : -1) - 8;
-                            return "translate("+ pos +")";
-                        };
-                    })   
-            }  
+
+                labels.each(function(d, i) {
+                    var labelNode = d3.select(this).node();
+                    var angle = midAngle(d);
+                    var pieCenter = {
+                        x: 0,//availableWidth / 2,
+                        y: 0//availableHeight / 2
+                    }
+                    var originalX = 0
+                    var originalY = 0 - (radius * 0.8 + labelPieDistance);
+                    var newCoords = rotate(originalX, originalY, pieCenter.x, pieCenter.y, angle);
+
+                    labelsData[i] = {
+                        d: d,
+                        x: newCoords.x,
+                        y: newCoords.y,
+                    }
+                });
+                labels.attr('transform', function(d, i) {
+                    return 'translate(' + [labelsData[i].x, labelsData[i].y] + ')'
+                })
+                setTimeout(function() {
+                    labels.each(function(d, i) {
+                        var labelNode = d3.select(this).node();
+                        var bbox = labelNode.getBBox();
+                        var angle = midAngle(d);
+                        var hemisphere = 'right';
+                        if (angle > Math.PI) {
+                            labelsData[i].x -= (bbox.width + 8);
+                            hemisphere = 'left'
+                        } else {
+                            labelsData[i].x += 8
+                        }
+                        labelsData[i].hs = hemisphere;
+                        labelsData[i].w = bbox.width;
+                        labelsData[i].width = bbox.width;
+                        labelsData[i].h = bbox.height;
+                        labelsData[i].height = bbox.height;
+                    });
+                    labelHeight = d3.max(labelsData, function(d) {return d.h});
+
+                    labels.attr('transform', function(d, i) {
+                        return 'translate(' + [labelsData[i].x, labelsData[i].y] + ')'
+                    })
+
+                    var size = labelsData.length;
+                    checkConflict(0, 'clockwise', size)
+                    checkConflict(size - 1, 'anticlockwise', size)
+                    setTimeout(function() {
+                        labels.attr('transform', function(d, i) {
+                            return 'translate(' + [labelsData[i].x, labelsData[i].y] + ')'
+                        })
+                        var lineData = getLabelLineData();
+
+                        var lines = wrap.select('.nv-pieLabels').selectAll('.label-polyline').data(pie)
+
+                        var lineFunction = d3.svg.line()
+                            .interpolate("cardinal")
+                            .x(function(d) { return d.x; })
+                            .y(function(d) { return d.y; });
+                        var index = 0;
+                        var lineGroup = lines.enter().append("path").classed("label-polyline",true)
+                        lines.transition().duration(0)
+                            .attrTween('d', function(d, i) {
+                                var percent = getSlicePercentage(d);
+                                if (!d.value || percent < labelThreshold) {
+                                    return function(t) {
+                                        return []
+                                    }
+                                }
+                                return function(t) {
+                                    return lineFunction(lineData[i])
+                                }
+                            })
+                            .attr('fill', 'none')
+                            .attr('stroke-width', '1px')
+                            .attr('style', function(d, i) {
+                                return 'stroke:' + color(d.data, i)
+                            })
+
+                    }, 50)
+                }, 50)
+
+            }
 
 
             if (showLabels) {
@@ -12074,7 +12330,7 @@ nv.models.pie = function() {
                         .style('text-anchor', labelSunbeamLayout ? ((d.startAngle + d.endAngle) / 2 < Math.PI ? 'start' : 'end') : 'middle') //center the text on it's origin or begin/end if orthogonal aligned
                         .style('fill', '#000')
                 });
-                                
+
                 var labelLocationHash = {};
                 var avgHeight = 14;
                 var avgWidth = 140;
@@ -12104,7 +12360,7 @@ nv.models.pie = function() {
                         Overlapping pie labels are not good. What this attempts to do is, prevent overlapping.
                         Each label location is hashed, and if a hash collision occurs, we assume an overlap.
                         Adjust the label's y-position to remove the overlap.
-                        */                        
+                        */
                         var center = labelsArc[i].centroid(d);
                         var percent = getSlicePercentage(d);
                         if (d.value && percent >= labelThreshold) {
@@ -12116,7 +12372,7 @@ nv.models.pie = function() {
                         }
                         return 'translate(' + center + ')'
                     }
-                });                
+                });
 
                 pieLabels.select(".nv-label text")
                     .style('text-anchor', function(d,i) {
@@ -12241,8 +12497,7 @@ nv.models.pie = function() {
 
     nv.utils.initOptions(chart);
     return chart;
-};
-nv.models.pieChart = function() {
+};nv.models.pieChart = function() {
     "use strict";
 
     //============================================================
