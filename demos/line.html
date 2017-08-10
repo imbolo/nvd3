@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <link href="../build/nv.d3.css" rel="stylesheet" type="text/css">
+    <script src="//cdn.bootcss.com/d3/3.5.2/d3.js"></script>
+    <script src="../build/nv.d3.js"></script>
+
+    <style>
+        text {
+            font: 12px sans-serif;
+        }
+        svg {
+            display: block;
+        }
+        html, body, #chart1, svg {
+            margin: 0px;
+            padding: 0px;
+            height: 100%;
+            width: 100%;
+        }
+
+        .dashed {
+            stroke-dasharray: 5,5;
+        }
+    </style>
+</head>
+<body class='with-3d-shadow with-transitions'>
+<div style="position:absolute; top: 0; left: 0;">
+    <button onclick="randomizeFillOpacity();">Randomize fill opacity</button>
+    <button onclick="expandLegend();">Expand/Contract Legend</button>
+    <script>
+        var expandLegend = function() {
+            var exp = chart.legend.expanded();
+            chart.legend.expanded(!exp);
+            chart.update();
+        }
+    </script>
+</div>
+<div id="chart1"></div>
+
+<script>
+    // Wrapping in nv.addGraph allows for '0 timeout render', stores rendered charts in nv.graphs, and may do more in the future... it's NOT required
+    var chart;
+    var data;
+
+    var randomizeFillOpacity = function() {
+        var rand = Math.random(0,1);
+        for (var i = 0; i < 100; i++) { // modify sine amplitude
+            data[4].values[i].y = Math.sin(i/(5 + rand)) * .4 * rand - .25;
+        }
+        data[4].fillOpacity = rand;
+        chart.update();
+    };
+
+    nv.addGraph(function() {
+        chart = nv.models.lineChart()
+            .options({
+                transitionDuration: 300,
+                useInteractiveGuideline: true,
+                zoomType: 'x',
+                interpolate: getSvgPathByGivenPoints,//'cardinal',
+                xScale: d3.time.scale(),
+                xTickFormat: function(d) {
+                  return d3.time.format.multi([
+                    [".%L", function(d) { return d.getMilliseconds(); }],
+                    [":%S", function(d) { return d.getSeconds(); }],
+                    ["%H:%M", function(d) { return d.getMinutes(); }],
+                    ["%H:%M", function(d) { return d.getHours(); }],
+                    ["%m-%d", function(d) { return d.getDay() && d.getDate() != 1; }],
+                    ["%m-%d", function(d) { return d.getDate() != 1; }],
+                    ["%Y-%m", function(d) { return d.getMonth(); }],
+                    ["%Y", function() { return true; }]
+                  ])(d)
+                },
+                yTickFormat: function(d) {
+                    if (d == null) {
+                        return 'N/A';
+                    }
+                    return d3.format(',.2f')(d);
+                },
+                // xAxis: {
+                //     axisLabel: 'Time (s)'
+                // }                             
+            })
+        ;
+       
+        data = generateData();
+
+        d3.select('#chart1').append('svg')
+            .datum(data)
+            .call(chart);
+
+        nv.utils.windowResize(chart.update);
+
+        return chart;
+    });
+
+    function generateData() {
+      var now = new Date().getTime()
+      var values = [];
+      for (var i=0; i<20; i++) {
+        values.push({
+          x: now + (3 * 60 * 60 * 100) * i,
+          y: Math.random() * 1000,          
+        });
+      }      
+      return [{
+        key: '下行流量',
+        values: values,
+        area: true,
+        color: 'rgba(0,192,222,0.50)'
+      }];
+    }
+
+    function getSvgPathByGivenPoints(points) {
+      var svgPath = [];
+      points.forEach(function (point, i) {
+        var partialSplinePath = getSplinePartial(points, point, i);
+        svgPath = svgPath.concat(partialSplinePath);
+      });
+      return svgPath.join(' ');
+
+
+      //获取曲线片段，svg path
+      function getSplinePartial(points, point, i) {
+        var x = point[0];
+        var y = point[1];
+        var lastPoint = points[i - 1];
+        var nextPoint = points[i + 1];
+
+        if (lastPoint && nextPoint) {
+
+          var lastX = lastPoint[0];
+          var lastY = lastPoint[1];
+          var nextX = nextPoint[0];
+          var nextY = nextPoint[1];
+          var correction;
+
+          //取control point, 各取中点暂时
+          var leftControlPointX = (x + lastX) / 2;
+          var leftControlPointY = (y + lastY) / 2;
+          var rightControlPointX = (x + nextX) / 2;
+          var rightControlPointY = (y + nextY) / 2;
+
+          correction = ((rightControlPointY - leftControlPointY) * (rightControlPointX - x)) /
+            (rightControlPointX - leftControlPointX) + y - rightControlPointY;
+
+          leftControlPointY += correction;
+          rightControlPointY += correction;
+
+          if (leftControlPointY > lastY && leftControlPointY > y) {
+            leftControlPointY = Math.max(lastY, y);
+            rightControlPointY = 2 * y - leftControlPointY;
+          } else if (leftControlPointY < lastY && leftControlPointY < y) {
+            leftControlPointY = Math.min(lastY, y);
+            rightControlPointY = 2 * y - leftControlPointY;
+          }
+          if (rightControlPointY > nextY && rightControlPointY > y) {
+            rightControlPointY = Math.max(nextY, y);
+            leftControlPointY = 2 * y - rightControlPointY;
+          } else if (rightControlPointY < nextY && rightControlPointY < y) {
+            rightControlPointY = Math.min(nextY, y);
+            leftControlPointY = 2 * y - rightControlPointY;
+          }
+
+          point.rightControlPointX = rightControlPointX;
+          point.rightControlPointY = rightControlPointY;
+
+        }
+        if (i == 0) {
+          return [x, y];
+        } else {
+          return [
+            'C',
+            lastPoint.rightControlPointX || lastPoint[0],
+            lastPoint.rightControlPointY || lastPoint[1],
+            leftControlPointX || x,
+            leftControlPointY || y,
+            x,
+            y
+          ];
+          lastPoint.rightControlPointX = null;
+          lastPoint.rightControlPointY = null;
+        }
+      }
+    };
+
+    // function sinAndCos() {
+    //     var sin = [],
+    //         sin2 = [],
+    //         cos = [],
+    //         rand = [],
+    //         rand2 = []
+    //         ;
+
+    //     for (var i = 0; i < 100; i++) {
+    //         sin.push({x: i, y: i % 10 == 5 ? null : Math.sin(i/10) }); //the nulls are to show how defined works
+    //         sin2.push({x: i, y: Math.sin(i/5) * 0.4 - 0.25});
+    //         cos.push({x: i, y: .5 * Math.cos(i/10)});
+    //         rand.push({x:i, y: Math.random() / 10});
+    //         rand2.push({x: i, y: Math.cos(i/10) + Math.random() / 10 })
+    //     }
+
+    //     return [
+    //         {
+    //             area: true,
+    //             values: sin,
+    //             key: "Sine Wave",
+    //             color: "#ff7f0e",
+    //             strokeWidth: 4,
+    //             classed: 'dashed'
+    //         },
+    //         {
+    //             values: cos,
+    //             key: "Cosine Wave",
+    //             color: "#2ca02c"
+    //         },
+    //         {
+    //             values: rand,
+    //             key: "Random Points",
+    //             color: "#2222ff"
+    //         },
+    //         {
+    //             values: rand2,
+    //             key: "Random Cosine",
+    //             color: "#667711",
+    //             strokeWidth: 3.5
+    //         },
+    //         {
+    //             area: true,
+    //             values: sin2,
+    //             key: "Fill opacity",
+    //             color: "#EF9CFB",
+    //             fillOpacity: .1
+    //         }
+    //     ];
+    // }
+
+</script>
+</body>
+</html>

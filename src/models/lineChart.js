@@ -80,7 +80,7 @@ nv.models.lineChart = function() {
     };
     var resetZoomButton;
 
-    function chart(selection) {
+    function chart(selection, isCallFromZoom) {
         renderWatch.reset();
         renderWatch.models(lines);
         if (showXAxis) renderWatch.models(xAxis);
@@ -91,11 +91,11 @@ nv.models.lineChart = function() {
             nv.utils.initSVG(container);
             var availableWidth = nv.utils.availableWidth(width, container, margin),
                 availableHeight = nv.utils.availableHeight(height, container, margin) - (focusEnable ? focus.height() : 0);
-            chart.update = function() {
+            chart.update = function(isCallFromZoom) {
                 if( duration === 0 ) {
-                    container.call( chart );
+                    container.call( chart, isCallFromZoom);
                 } else {
-                    container.transition().duration(duration).call(chart);
+                    container.transition().duration(duration).call(chart, isCallFromZoom);
                 }
             };
             chart.container = this;
@@ -202,7 +202,10 @@ nv.models.lineChart = function() {
                     .xAccessor(chart.x());
                 wrap.select(".nv-zoomLayer").call(zoomLayer);
             }
-
+            if (!isCallFromZoom) {
+                wrap.selectAll(".nv-zoomLayer g.button").on('click', null);
+                wrap.selectAll(".nv-zoomLayer g.button").remove();
+            }
             if (zoomType && zoomType == 'x') {
                 if (wrap.selectAll(".nv-zoomLayer g.button").node() == null) {
                     resetZoomButton = wrap.select(".nv-zoomLayer")
@@ -251,11 +254,36 @@ nv.models.lineChart = function() {
                     });
                     resetZoomButton.style('display', 'none')
                 } else {
+                    resetZoomButton = wrap.select('.nv-zoomLayer g.button');
                     wrap.select(".nv-zoomLayer g.button rect")
                         .attr('x', availableWidth - 72 - 20)
                     wrap.select(".nv-zoomLayer g.button text")
                         .attr('x', availableWidth - 72 - 14)
                 }
+                resetZoomButton.on('click', null);
+                resetZoomButton.on('click', function() {
+                    resetZoomButton.style('display', 'none')
+                    var min = d3.min(container.data()[0], function(d) {
+                        return d3.min(d.values, function(d) {
+                            return chart.x()(d);
+                        })
+                    });
+                    var max = d3.max(container.data()[0], function(d) {
+                        return d3.max(d.values, function(d) {
+                            return chart.x()(d);
+                        })
+                    });
+                    chart.options({
+                        xDomain: [min, max]
+                    });
+
+                    dispatch.zoom({
+                        type: 'reset',
+                        xDomain: [min, max]
+                    });
+
+                    chart.update();
+                });
             }
 
             g.select('.nv-focus .nv-background rect')
@@ -511,7 +539,7 @@ nv.models.lineChart = function() {
                             xDomain: xDomain
                         });
 
-                        chart.update();
+                        chart.update(true);
                         dispatch.zoom({
                             type: 'zoom',
                             xDomain: xDomain
