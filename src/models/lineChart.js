@@ -414,13 +414,13 @@ nv.models.lineChart = function() {
                             if (e.pointXValue < currentValues[0][0] || e.pointXValue > currentValues[currentValues.length - 1][0]) {
                                 return;
                             }
-                        }                        
+                        }
 
                         pointIndex = nv.interactiveBisect(currentValues, e.pointXValue, lines.x());
                         var point = currentValues[pointIndex];
                         var pointYValue = chart.y()(point, pointIndex);
-                        if (pointYValue !== null) {
-                            lines.highlightPoint(series.seriesIndex, e.pointIndex, true);
+                        if (pointYValue !== null && point.x == e.point.x) {
+                            lines.highlightPoint(series.seriesIndex, pointIndex, true);
                         }
                         if (point === undefined) return;
                         if (singlePoint === undefined) singlePoint = point;
@@ -501,17 +501,17 @@ nv.models.lineChart = function() {
                     if (dragStartXValue === null) {
                         return;
                     }
-                    var pointXLocation = chart.xScale()(chart.x()(e.point, e.pointIndex));                                   
-                    currentXValue = xAccessor(e.point); 
+                    var pointXLocation = chart.xScale()(chart.x()(e.point, e.pointIndex));
+                    currentXValue = xAccessor(e.point);
 
                     zoomLayer.updateSelectArea(dragStartX, pointXLocation)
                 });
 
                 zoomLayer.dispatch.on("elementDragStart", function(e) {
-                   var pointXLocation = chart.xScale()(chart.x()(e.point, e.pointIndex));                                   
+                   var pointXLocation = chart.xScale()(chart.x()(e.point, e.pointIndex));
                     dragStartXValue = e.pointXValue;
                     dragStartPoint = e.point;
-                    dragStartPointIndex = e.pointIndex;                                    
+                    dragStartPointIndex = e.pointIndex;
                     dragStartX = pointXLocation;
 
                     zoomLayer.renderSelectArea(pointXLocation)
