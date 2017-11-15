@@ -411,9 +411,8 @@ nv.models.lineChart = function() {
                         });
 
                         if (currentValues && currentValues[0] && currentValues[currentValues.length - 1]) {
-                            if (e.pointXValue < currentValues[0][0] || e.pointXValue > currentValues[currentValues.length - 1][0]) {
-                                return;
-                            }
+                            if (e.pointXValue < currentValues[0][0]) e.pointXValue = currentValues[0][0]
+                            if (e.pointXValue > currentValues[currentValues.length - 1][0]) e.pointXValue = currentValues[currentValues.length - 1][0]
                         }
 
                         pointIndex = nv.interactiveBisect(currentValues, e.pointXValue, lines.x());
